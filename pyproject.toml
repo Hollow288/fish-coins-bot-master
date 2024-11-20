@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "fish-coins-bot-master"
+version = "0.1.0"
+description = ""
+authors = ["Your Name <you@example.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.13"
+nonebot2 = {extras = ["fastapi"], version = "^2.4.0"}
+nonebot-adapter-console = "^0.6.0"
+uvicorn = "^0.32.0"
+nonebot-adapter-onebot = "^2.4.6"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
