@@ -1,6 +1,17 @@
 #### 1. python
 
-##### 1. 1 
+##### 1. 1 可选依赖
+
+```
+tortoise-orm[asyncpg]>=0.19.3
+```
+
+- 方括号中的内容是 **可选依赖项**（extras）。
+
+- 在这个例子中，`asyncpg` 是一个高性能的 PostgreSQL 异步驱动程序，用于支持 Tortoise-ORM 连接到 **PostgreSQL **数据库。
+
+- 声明 `[asyncpg]` 表示安装 `tortoise-orm` 时会同时安装 `asyncpg` 作为依赖。
+- 这有点类似于maven中的**optional**，依赖不会被全部引入，必须显式声明，才会被引入
 
 #### 2. pyproject
 

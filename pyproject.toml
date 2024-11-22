@@ -11,6 +11,8 @@ nonebot2 = {extras = ["fastapi"], version = "^2.4.0"}
 nonebot-adapter-console = "^0.6.0"
 uvicorn = "^0.32.0"
 nonebot-adapter-onebot = "^2.4.6"
+nonebot-plugin-apscheduler = "^0.5.0"
+tortoise-orm = {extras = ["aiomysql"], version = "^0.22.0"}
 
 
 [build-system]
