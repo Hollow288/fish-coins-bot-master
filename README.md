@@ -68,3 +68,86 @@ poetry env info --path
 ```
 
 setting中搜索python interpreter,然后add interpreter->add local  interpreter ->select existing ->选择虚拟环境位置下的Scripts\python.exe
+
+#### 3. docker
+
+##### 3.1 windows制作镜像
+
+先下载Docker Desktop
+
+编写Dockerfile放到项目下面：
+
+```
+# 使用官方 Python 3.13 作为基础镜像
+FROM python:3.13-slim
+
+# 设置工作目录
+WORKDIR /app
+
+# 安装系统依赖，Poetry 和其他必要工具
+RUN apt-get update && \
+    apt-get install -y \
+    build-essential \
+    libpq-dev \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# 安装 Poetry
+RUN curl -sSL https://install.python-poetry.org | python3 -
+
+# 设置 Poetry 为全局可用
+ENV PATH="/root/.local/bin:$PATH"
+
+# 复制 Poetry 的配置文件
+COPY pyproject.toml poetry.lock /app/
+
+# 安装项目依赖
+RUN poetry install
+
+# 复制项目源代码到工作目录
+COPY . /app/
+
+# 设置环境变量（例如：NoneBot 配置文件路径）
+# ENV NONEBOT_CONFIG=/app/config.yaml
+
+# 容器启动时执行命令
+CMD ["poetry", "run", "python3", "bot.py"]
+
+```
+
+在项目目录制作镜像：
+
+```
+docker build -t nonebot-docker:python3.13 .
+```
+
+打成tar包
+
+```
+docker save -o nonebot-docker.tar nonebot-docker:python3.13
+```
+
+在centos上加载镜像
+
+```
+docker load < /usr/src/nonebot-docker.tar
+```
+
+运行
+
+```
+docker run -d --name nonebot-container -p 8080:8080 nonebot-docker:python3.13
+```
+
+#### 4.  NapCat&NoneBot
+
+nc和nb都部署后：
+
+```
+docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' 249e90c35dc2
+```
+
+查看地址为：172.17.0.3
+
+nc配置反向ws地址为：ws://172.17.0.3:8080/onebot/v11/ws
+
