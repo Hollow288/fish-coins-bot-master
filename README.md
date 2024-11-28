@@ -136,10 +136,30 @@ docker load < /usr/src/nonebot-docker.tar
 运行
 
 ```
-docker run -d --name nonebot-container -p 8080:8080 nonebot-docker:python3.13
+docker run -d --name nonebot-container -p 8080:8080 -v /opt/nonebot/.env:/app/.env nonebot-docker:python3.13
 ```
 
 #### 4.  NapCat&NoneBot
+
+napcat 启动：
+
+```
+docker run -d \
+-e NAPCAT_GID=$(id -g) \
+-e NAPCAT_UID=$(id -u) \
+-p 3000:3000 \
+-p 3001:3001 \
+-p 6099:6099 \
+--name napcat \
+--restart=always \
+-v /opt/napcat/data:/app/.config/QQ \
+-v /opt/napcat/config:/app/napcat/config \
+mlikiowa/napcat-docker:latest
+```
+
+
+
+
 
 nc和nb都部署后：
 

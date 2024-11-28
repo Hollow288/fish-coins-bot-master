@@ -60,7 +60,7 @@ async def test_fetch_image():
     # 修改文字内容
     live_name = "喵不动了喵"
     live_address = "https://live.bilibili.com/3786110"
-    live_title = "《！州一下 可扶贫》"
+    live_title = "《异环！一测！测试中！无节奏！》"
     live_icon_text = "开播啦!"
 
     # 设置字体大小

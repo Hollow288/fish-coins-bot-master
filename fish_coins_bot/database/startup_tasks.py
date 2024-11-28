@@ -34,9 +34,13 @@ async def initialize_live_state():
 
 
                     live_status = str(response_data["data"]["live_status"])
+                    live_time = response_data["data"]["live_time"]
 
-                    if live_status in allowed_status and live_status != str(record.live_state):
-                        await BotLiveState.filter(id=record.id).update(live_state=live_status)
+                    if live_time == '0000-00-00 00:00:00':
+                        live_time = None  # 将 live_time 设置为 None，表示 NULL
+
+                    if live_status in allowed_status:
+                        await BotLiveState.filter(id=record.id).update(live_state=live_status,live_time=live_time)
                         logger.success(f"Update for Live ID {record.live_id}, Status: {live_status}")
                     else:
                         continue

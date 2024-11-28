@@ -1,6 +1,9 @@
 from fish_coins_bot.database.models import BotLiveState
 import httpx
+import time
 from nonebot.log import logger
+
+from fish_coins_bot.utils import calc_time_total
 from fish_coins_bot.utils.image_utils import make_live_image
 from nonebot.adapters.onebot.v11 import MessageSegment
 from nonebot import get_bot,require
@@ -47,6 +50,15 @@ async def live_scheduled():
                     if live_status == '0':
                         # 下波
                         await BotLiveState.filter(id=record.id).update(live_state=live_status)
+
+                        live_time_msg = (
+                            f"\n本次直播时长 {calc_time_total(time.time() - response_room_data["data"]["live_time"])}。"
+                        )
+
+                        message = f"{record.host_name}下播了{live_time_msg}"
+
+                        await bot.send_group_msg(group_id=record.group_number, message=message)
+
                     elif live_status == '1':
 
                         params_host_info = {"mid": response_room_data["data"]["uid"]}
@@ -60,13 +72,14 @@ async def live_scheduled():
                         if response_host_info.status_code == 200:
                             response_host_data = response_host_info.json()
                             # 开播
-                            await BotLiveState.filter(id=record.id).update(live_state=live_status)
-
                             live_cover_url = response_room_data["data"]["user_cover"]
                             live_avatar_url = response_host_data["data"]["card"]["face"]
                             live_name = response_host_data["data"]["card"]["name"]
                             live_address = f"https://live.bilibili.com/{record.live_id}"
-                            live_title = response_room_data["data"]["title"]
+                            live_title = f"《{response_room_data["data"]["title"]}》"
+                            live_time = response_room_data["data"]["live_time"]
+
+                            await BotLiveState.filter(id=record.id).update(live_state=live_status,host_name=live_name,live_time=live_time)
 
                             image = await make_live_image(live_cover_url,live_avatar_url,live_name,live_address,live_title)
                             buffer = BytesIO()
