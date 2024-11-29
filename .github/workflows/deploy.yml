@@ -57,7 +57,9 @@ jobs:
 
       - name: Deploy to remote server
         run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} "
           docker pull hollow288/nonebot-docker:latest &&
           docker stop nonebot-container &&
           docker rm nonebot-container &&
-          docker run -d --name nonebot-container -p 8080:8080 -v /opt/nonebot/.env:/app/.env hollow288/nonebot-docker:latest"  # 拉取并运行新的镜像
+          docker run -d --name nonebot-container -p 8080:8080 -v /opt/nonebot/.env:/app/.env hollow288/nonebot-docker:latest
+          "
