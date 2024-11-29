@@ -57,7 +57,6 @@ jobs:
 
       - name: Deploy to remote server
         run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} "
           docker pull hollow288/nonebot-docker:latest &&
           docker stop nonebot-container &&
           docker rm nonebot-container &&
