@@ -139,6 +139,92 @@ docker load < /usr/src/nonebot-docker.tar
 docker run -d --name nonebot-container -p 8080:8080 -v /opt/nonebot/.env:/app/.env nonebot-docker:python3.13
 ```
 
+##### 3.2 使用 GitHub Actions
+
+（也要有DockerFile）项目下创建.github/workflows/deploy.yml文件（这里只实现了持续集成，没有持续部署）
+
+```
+name: Deploy to Remote Server
+
+on:
+  push:
+    branches:
+      - master  # 仅当代码推送到 master 分支时触发
+
+jobs:
+  build:
+    runs-on: ubuntu-latest  # 使用 GitHub 提供的最新 Ubuntu 环境
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2  # 获取仓库代码
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2  # 配置 Docker 构建工具
+
+      - name: Build Docker image
+        run: |
+          docker build -t hollow288/nonebot-docker:latest .  # 使用 Dockerfile 构建镜像
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}  # GitHub Secrets 中配置的 Docker Hub 用户名
+          password: ${{ secrets.DOCKER_PASSWORD }}  # GitHub Secrets 中配置的 Docker Hub 密码
+
+      - name: Push Docker image to Docker Hub
+        run: |
+          docker push hollow288/nonebot-docker:latest  # 推送到 Docker Hub
+
+# 持续部署 没有实现
+#  deploy:
+#    runs-on: ubuntu-latest
+#
+#    needs: build  # 需要在构建镜像后才执行部署
+#
+#    steps:
+#      - name: Checkout code
+#        uses: actions/checkout@v2
+#
+#      - name: Set up SSH
+#        uses: appleboy/ssh-action@v0.1.5  # 使用 SSH 连接远程服务器
+#        with:
+#          host: ${{ secrets.SERVER_IP }}  # 远程服务器 IP 地址，使用 GitHub Secrets
+#          username: ${{ secrets.SERVER_USER }}  # 远程服务器用户名，使用 GitHub Secrets
+#          key: ${{ secrets.SERVER_SSH_KEY }}  # SSH 密钥，使用 GitHub Secrets
+#          port: 22  # 如果使用非标准端口，修改端口号
+#
+#      - name: Deploy to remote server
+#        run: |
+#          ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} "
+#          docker pull my-docker-image:latest &&
+#          docker stop nonebot-container &&
+#          docker rm nonebot-container &&
+#          docker run -d --name nonebot-container -p 8080:8080 my-docker-image:latest"  # 拉取并运行新的镜像
+
+```
+
+创建Docker Hub账号并创建一个仓库叫`nonebot-docker`，`hollow288`是用户名
+
+ GitHub 仓库的 **Settings** > **Secrets and variables** > **Actions** 中添加 `DOCKER_USERNAME` 和 `DOCKER_PASSWORD`
+
+然后提交代码到`master`分支的时候，就会自动构建docker镜像到Docker Hub
+
+服务器拉取镜像
+
+```
+docker pull hollow288/nonebot-docker:latest
+```
+
+运行：
+
+```
+docker run -d --name nonebot-container -p 8080:8080 -v /opt/nonebot/.env:/app/.env hollow288/nonebot-docker:latest
+```
+
 #### 4.  NapCat&NoneBot
 
 napcat 启动：
