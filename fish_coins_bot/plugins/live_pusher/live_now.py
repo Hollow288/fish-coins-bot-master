@@ -1,3 +1,5 @@
+import pytz
+
 from fish_coins_bot.database.models import BotLiveState
 import httpx
 import time
@@ -52,7 +54,7 @@ async def live_scheduled():
                         await BotLiveState.filter(id=record.id).update(live_state=live_status)
 
                         live_time_msg = (
-                            f"\n本次直播时长 {calc_time_total(time.time() - record.live_time.timestamp())}。"
+                            f"\n本次直播时长 {calc_time_total(time.time() - record.live_time.replace(tzinfo=pytz.timezone('Asia/Shanghai')).timestamp())}。"
                         )
 
                         message = f"{record.host_name}下播了{live_time_msg}"

@@ -34,7 +34,7 @@ jobs:
       - name: Push Docker image to Docker Hub
         run: |
           docker push hollow288/nonebot-docker:latest  # 推送到 Docker Hub
-
+  #Todo 自动部署这一部分有问题,未解决,貌似是SSH连接时出现了问题
   deploy:
     runs-on: ubuntu-latest
 
