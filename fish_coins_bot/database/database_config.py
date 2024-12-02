@@ -25,4 +25,6 @@ TORTOISE_ORM = {
             "default_connection": "default",
         },
     },
+    # 设置时区为 Asia/Shanghai (UTC+8)
+    "timezone": "Asia/Shanghai",
 }
