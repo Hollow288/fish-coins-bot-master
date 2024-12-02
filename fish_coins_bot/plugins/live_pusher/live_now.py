@@ -88,13 +88,17 @@ async def live_scheduled():
                             image.save(buffer, format="PNG")
                             buffer.seek(0)
 
-                            message = (
-                                    MessageSegment.image(buffer)  # 添加图片
-                                    + "\n"  # 换行
-                                    + live_address  # 添加直播地址
+                            message_img = (
+                                    MessageSegment.image(buffer)
                             )
 
-                            await bot.send_group_msg(group_id=record.group_number, message=message)
+                            message_text = (
+                                    f"直播间地址: {live_address}"
+                            )
+
+                            await bot.send_group_msg(group_id=record.group_number, message=message_img)
+
+                            await bot.send_group_msg(group_id=record.group_number, message=message_text)
 
                         else:
                             logger.error(f"Failed for Host ID {response_room_data["data"]["uid"]}, Status: {response_host_info.status_code}")
