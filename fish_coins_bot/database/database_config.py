@@ -21,7 +21,11 @@ TORTOISE_ORM = {
     },
     "apps": {
         "models": {
-            "models": ["fish_coins_bot.database.models"],
+            "models": [
+                "fish_coins_bot.database.live.models",
+                "fish_coins_bot.database.hotta.arms",
+
+            ],
             "default_connection": "default",
         },
     },
