@@ -39,11 +39,8 @@ class ArmsStarRatings(Model):
     武器星级信息模型
     """
     star_ratings_id = fields.IntField(pk=True, description="星级id")
-    arms = fields.ForeignKeyField(
-        "models.Arms",
-        related_name="star_ratings",
-        on_delete=fields.CASCADE,
-        description="关联的武器"
+    arms_id = fields.IntField(
+        description="武器id"
     )
     items_name = fields.CharField(max_length=200, null=True, description="词条名称")
     items_describe = fields.TextField(null=True, description="词条描述")
@@ -51,3 +48,53 @@ class ArmsStarRatings(Model):
     class Meta:
         table = "arms_star_ratings"
         table_description = "武器星级"
+
+
+class ArmsCharacteristics(Model):
+    characteristics_id = fields.IntField(
+        pk=True,  # 设置为主键
+        auto_increment=True,
+        description="特质id"
+    )
+    arms_id = fields.IntField(
+        description="武器id"
+    )
+    items_name = fields.CharField(
+        max_length=200,
+        null=True,
+        description="词条名称"
+    )
+    items_describe = fields.TextField(
+        null=True,
+        description="词条描述"
+    )
+
+    class Meta:
+        table = "arms_characteristics"  # 表名
+        verbose_name = "武器特质"
+        verbose_name_plural = "武器特质"
+
+
+class ArmsExclusives(Model):
+    exclusives_id = fields.IntField(
+        pk=True,  # 设置为主键
+        auto_increment=True,
+        description="专属id"
+    )
+    arms_id = fields.IntField(
+        description="武器id"
+    )
+    items_name = fields.CharField(
+        max_length=200,
+        null=True,
+        description="词条名称"
+    )
+    items_describe = fields.TextField(
+        null=True,
+        description="词条描述"
+    )
+
+    class Meta:
+        table = "arms_exclusives"  # 表名
+        verbose_name = "武器专属"
+        verbose_name_plural = "武器专属"

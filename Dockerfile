@@ -24,6 +24,11 @@ COPY pyproject.toml poetry.lock /app/
 # 安装项目依赖
 RUN poetry install
 
+# 安装 Playwright 及浏览器
+RUN poetry run python -m playwright install firefox
+
+EXPOSE 5000
+
 # 复制项目源代码到工作目录
 COPY . /app/
 
