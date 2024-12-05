@@ -29,6 +29,7 @@ RUN apt-get update && \
     libdbus-1-3 \
     libgbm1 \
     libasound2 \
+    locales \
     && apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -37,6 +38,14 @@ RUN curl -sSL https://install.python-poetry.org | python3 -
 
 # 设置 Poetry 为全局可用
 ENV PATH="/root/.local/bin:$PATH"
+
+# 配置 UTF-8 环境
+RUN locale-gen zh_CN.UTF-8 && \
+    update-locale LANG=zh_CN.UTF-8 LC_ALL=zh_CN.UTF-8
+
+# 设置环境变量
+ENV LANG=zh_CN.UTF-8
+ENV LC_ALL=zh_CN.UTF-8
 
 # 复制 Poetry 的配置文件
 COPY pyproject.toml poetry.lock /app/
