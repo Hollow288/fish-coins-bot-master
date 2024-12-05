@@ -28,7 +28,7 @@ async def handle_function(args: Message = CommandArg()):
     if arms_name := args.extract_plain_text():
         arms_name = check_arms_alias(arms_name)
 
-        image_path = Path(__file__).parent.parent.parent.parent / 'screenshots' / f"{arms_name}.png"
+        image_path = Path("/app/screenshots") / f"{arms_name}.png"
 
         # 检查文件是否存在
         if image_path.exists():
