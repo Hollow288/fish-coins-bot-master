@@ -30,6 +30,9 @@ RUN apt-get update && \
     libgbm1 \
     libasound2 \
     locales \
+    libnss3 \
+    libatk-bridge2.0-0 \
+    libxss1 \
     && apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -40,7 +43,8 @@ RUN curl -sSL https://install.python-poetry.org | python3 -
 ENV PATH="/root/.local/bin:$PATH"
 
 # 配置 UTF-8 环境
-RUN locale-gen zh_CN.UTF-8 && \
+RUN echo "zh_CN.UTF-8 UTF-8" > /etc/locale.gen && \
+    locale-gen zh_CN.UTF-8 && \
     update-locale LANG=zh_CN.UTF-8 LC_ALL=zh_CN.UTF-8
 
 # 设置环境变量
