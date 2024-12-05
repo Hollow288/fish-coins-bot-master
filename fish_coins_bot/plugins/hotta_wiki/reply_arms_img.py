@@ -33,7 +33,7 @@ async def handle_function(args: Message = CommandArg()):
         # 检查文件是否存在
         if image_path.exists():
             # 发送图片
-            image_message = MessageSegment.image(f"file:///{image_path}")
+            image_message = MessageSegment.image(f"file://{image_path}")
             await arms.finish(image_message)
         else:
             await arms.finish(f"没有找到武器名为 `{arms_name}` 的图鉴,快联系作者让他收录吧~")
