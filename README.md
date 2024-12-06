@@ -222,10 +222,14 @@ docker pull hollow288/nonebot-docker:latest
 运行：
 
 ```
-docker run -d --name nonebot-container -p 8080:8080 -v /opt/nonebot/.env:/app/.env hollow288/nonebot-docker:latest
+docker run -d --name nonebot-container -p 8080:8080 -v /opt/nonebot/.env:/app/.env -v /opt/nonebot/screenshots:/app/screenshots hollow288/nonebot-docker:latest
 ```
 
+
+
 #### 4.  NapCat&NoneBot
+
+##### 4.1 启动！
 
 napcat 启动：
 
@@ -240,6 +244,7 @@ docker run -d \
 --restart=always \
 -v /opt/napcat/data:/app/.config/QQ \
 -v /opt/napcat/config:/app/napcat/config \
+-v /opt/nonebot/screenshots:/app/screenshots \
 mlikiowa/napcat-docker:latest
 ```
 
@@ -256,4 +261,21 @@ docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' 249e
 查看地址为：172.17.0.3
 
 nc配置反向ws地址为：ws://172.17.0.3:8080/onebot/v11/ws
+
+
+
+##### 4.2 其他说明
+
+在hotta_wiki插件中，我们生成的图片路径是在nonebot文件路径下的screenshots文件夹中，我们发给napcat的文件路径是这样的：
+
+```
+image_path = Path("/app/screenshots") / f"{arms_name}.png"
+image_message = MessageSegment.image(f"file://{image_path}")
+```
+
+所以napcat会去找自己文件目录下的screenshots文件夹，当然是找不到，所以，我们将本地的screenshots文件夹同时挂载到napcat和nonebot上：
+
+```
+-v /opt/nonebot/screenshots:/app/screenshots
+```
 
