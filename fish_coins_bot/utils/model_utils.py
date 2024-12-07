@@ -63,7 +63,8 @@ def make_arms_img_url(arms: dict):
     arms["arms_charging_energy"] = arms_level(arms["arms_charging_energy"])
     arms["AlibabaPuHuiTi"] = FONT_HOST + "AlibabaPuHuiTi-3-55-Regular.otf"
     arms["ZCOOLKuaiLe"] = FONT_HOST + "ZCOOLKuaiLe-Regular.ttf"
-    arms["background_url"] = BACKGROUND_HOST + "background.jpeg"
+    arms["background_url"] = BACKGROUND_HOST + f"background-{arms["arms_name"]}.jpeg"
+    arms["default_background_url"] = BACKGROUND_HOST + "background.jpeg"
 
 # 检查武器名称别名
 def check_arms_alias(arms_name:str):
