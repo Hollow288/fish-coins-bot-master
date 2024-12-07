@@ -184,8 +184,6 @@ async def make_all_arms_image():
             html_content = template.render(**arms)
 
             # 加载 HTML 内容
-            await page.set_content(html_content)
-
             await page.set_content(html_content, timeout=60000)  # 60 秒
 
             # 截图特定区域 (定位到 .card)
