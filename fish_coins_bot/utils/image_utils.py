@@ -145,16 +145,13 @@ async def make_all_arms_image():
     files = [file.stem for file in screenshot_dir.iterdir() if file.is_file()]
     logger.warning(f"The following documents already exist: {files}. Skip")
 
-
     arms_list = await Arms.all().values("arms_id", "arms_type", "arms_attribute", "arms_name", "arms_overwhelmed",
                                         "arms_charging_energy", "arms_thumbnail_url")
 
     arms_list = [arms for arms in arms_list if arms["arms_name"] not in files]
-
     arms_names = [arms["arms_name"] for arms in arms_list]
 
     logger.warning(f"The following documents will be created: {arms_names}.")
-
 
     # 创建 Jinja2 环境
     env = Environment(loader=FileSystemLoader('templates'))
@@ -162,7 +159,7 @@ async def make_all_arms_image():
 
     async with async_playwright() as p:
         browser = await p.firefox.launch(headless=True)
-        page = await browser.new_page()
+        page = await browser.new_page()  # 只创建一个标签页
 
         for arms in arms_list:
             make_arms_img_url(arms)
@@ -179,6 +176,7 @@ async def make_all_arms_image():
             arms["star_ratings"] = star_ratings
             arms["star_characteristics"] = star_characteristics
             arms["star_exclusives"] = star_exclusives
+
             # 渲染 HTML
             template = env.get_template("template.html")
             html_content = template.render(**arms)
@@ -192,6 +190,9 @@ async def make_all_arms_image():
             sanitized_name = sanitize_filename(arms['arms_name'])  # 清理文件名
             screenshot_path = screenshot_dir / f"{sanitized_name}.png"
             await locator.screenshot(path=str(screenshot_path))
+
+            # 每次处理完成后，可以选择清除当前页面内容或重新加载（视需求而定）
+            await page.goto("about:blank")  # 重置页面内容，准备下一轮渲染
 
         await browser.close()
 
