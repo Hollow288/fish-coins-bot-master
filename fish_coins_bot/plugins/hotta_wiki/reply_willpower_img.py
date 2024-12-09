@@ -8,34 +8,34 @@ from nonebot.params import CommandArg
 from pathlib import Path
 from nonebot.adapters.onebot.v11 import MessageSegment
 
-from fish_coins_bot.utils.model_utils import check_arms_alias
+from fish_coins_bot.utils.model_utils import check_willpower_alias
 
 
 def is_group_chat(event) -> bool:
     return isinstance(event, GroupMessageEvent)
 
-arms = on_command(
-    "武器图鉴",
+willpower = on_command(
+    "意志图鉴",
     rule=to_me() & Rule(is_group_chat),  # 使用自定义规则
-    aliases={"武器"},
+    aliases={"意志"},
     priority=10,
     block=True,
 )
 
-@arms.handle()
-async def arms_img_handle_function(args: Message = CommandArg()):
+@willpower.handle()
+async def willpower_img_handle_function(args: Message = CommandArg()):
     #
-    if arms_name := args.extract_plain_text():
-        arms_name = check_arms_alias(arms_name)
+    if willpower_name := args.extract_plain_text():
+        willpower_name = check_willpower_alias(willpower_name)
 
-        image_path = Path("/app/screenshots/arms") / f"{arms_name}.png"
+        image_path = Path("/app/screenshots/willpower") / f"{willpower_name}.png"
 
         # 检查文件是否存在
         if image_path.exists():
             # 发送图片
             image_message = MessageSegment.image(f"file://{image_path}")
-            await arms.finish(image_message)
+            await willpower.finish(image_message)
         else:
-            await arms.finish(f"没有找到武器名为 `{arms_name}` 的图鉴,快联系作者催他收录吧~")
+            await willpower.finish(f"没有找到意志名为 `{willpower_name}` 的图鉴,快联系作者催他收录吧~")
     else:
-        await arms.finish("指令错误,例如: /武器图鉴 静澜")
+        await willpower.finish("指令错误,例如: /意志图鉴 烈烈红莲")

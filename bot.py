@@ -3,7 +3,7 @@ from nonebot.adapters.onebot.v11 import Adapter as ONEBOT_V11Adapter
 from fish_coins_bot.utils.startup_tasks import initialize_live_state
 from tortoise import Tortoise
 from fish_coins_bot.database import database_config
-from fish_coins_bot.utils.image_utils import make_all_arms_image
+from fish_coins_bot.utils.image_utils import make_all_arms_image, make_all_willpower_image
 
 # 初始化 NoneBot
 nonebot.init()
@@ -23,6 +23,9 @@ async def do_something():
     await initialize_live_state()
     # 初始化武器图片
     await make_all_arms_image()
+    # 初始化意志图片
+    await make_all_willpower_image()
+
 
 # 在这里加载插件
 # nonebot.load_builtin_plugins("echo")  # 内置插件

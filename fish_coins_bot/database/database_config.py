@@ -24,6 +24,7 @@ TORTOISE_ORM = {
             "models": [
                 "fish_coins_bot.database.live.models",
                 "fish_coins_bot.database.hotta.arms",
+                "fish_coins_bot.database.hotta.willpower",
 
             ],
             "default_connection": "default",

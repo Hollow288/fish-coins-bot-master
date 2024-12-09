@@ -6,7 +6,11 @@ from pathlib import Path
 from playwright.async_api import async_playwright
 from fish_coins_bot.database.hotta.arms import Arms,ArmsStarRatings,ArmsCharacteristics,ArmsExclusives
 from jinja2 import Environment, FileSystemLoader
-from fish_coins_bot.utils.model_utils import make_arms_img_url, highlight_numbers, sanitize_filename
+
+from fish_coins_bot.database.hotta.willpower import Willpower, WillpowerSuit
+from fish_coins_bot.utils.model_utils import make_arms_img_url, highlight_numbers, sanitize_filename, \
+    make_willpower_img_url
+
 
 # 获取网络图片
 async def fetch_image(url: str):
@@ -139,19 +143,19 @@ async def make_live_image(live_cover_url: str,live_avatar_url: str,live_name: st
 
 
 async def make_all_arms_image():
-    screenshot_dir = Path(__file__).parent.parent.parent / "screenshots"
+    screenshot_dir = Path(__file__).parent.parent.parent / "screenshots" / "arms"
     screenshot_dir.mkdir(exist_ok=True)
 
     files = [file.stem for file in screenshot_dir.iterdir() if file.is_file()]
-    logger.warning(f"The following documents already exist: {files}. Skip")
+    logger.warning(f"The following arms documents already exist: {files}. Skip")
 
-    arms_list = await Arms.all().values("arms_id", "arms_type", "arms_attribute", "arms_name", "arms_overwhelmed",
+    arms_list = await Arms.filter(del_flag="0").values("arms_id", "arms_type", "arms_attribute", "arms_name", "arms_overwhelmed",
                                         "arms_charging_energy", "arms_thumbnail_url")
 
     arms_list = [arms for arms in arms_list if arms["arms_name"] not in files]
     arms_names = [arms["arms_name"] for arms in arms_list]
 
-    logger.warning(f"The following documents will be created: {arms_names}.")
+    logger.warning(f"The following arms documents will be created: {arms_names}.")
 
     # 创建 Jinja2 环境
     env = Environment(loader=FileSystemLoader('templates'))
@@ -177,7 +181,7 @@ async def make_all_arms_image():
             arms["star_exclusives"] = star_exclusives
 
             # 渲染 HTML
-            template = env.get_template("template.html")
+            template = env.get_template("template-arms.html")
             html_content = template.render(**arms)
 
             # 创建新的页面
@@ -198,6 +202,62 @@ async def make_all_arms_image():
 
         await browser.close()
 
-    logger.success(f"All files are created.")
+    logger.success(f"All arms files are created.")
+
+
+
+
+async def make_all_willpower_image():
+    screenshot_dir = Path(__file__).parent.parent.parent / "screenshots" / "willpower"
+    screenshot_dir.mkdir(exist_ok=True)
+
+    files = [file.stem for file in screenshot_dir.iterdir() if file.is_file()]
+    logger.warning(f"The following willpower documents already exist: {files}. Skip")
+
+    willpower_list = await Willpower.filter(del_flag="0").values("willpower_id", "willpower_name", "willpower_thumbnail_url")
+
+    willpower_list = [willpower for willpower in willpower_list if willpower["willpower_name"] not in files]
+    willpower_names = [willpower["willpower_name"] for willpower in willpower_list]
+
+    logger.warning(f"The following willpower documents will be created: {willpower_names}.")
+
+    # 创建 Jinja2 环境
+    env = Environment(loader=FileSystemLoader('templates'))
+    env.filters['highlight_numbers'] = highlight_numbers  # 注册过滤器
+
+    async with async_playwright() as p:
+        browser = await p.firefox.launch(headless=True)
+
+        for willpower in willpower_list:
+            make_willpower_img_url(willpower)
+
+            # 套装
+            willpower_suit = await WillpowerSuit.filter(willpower_id=willpower["willpower_id"]).values("items_name", "items_describe")
+
+            willpower["willpower_suit"] = willpower_suit
+
+            # 渲染 HTML
+            template = env.get_template("template-willpower.html")
+            html_content = template.render(**willpower)
+
+            # 创建新的页面
+            page = await browser.new_page()  # 每次处理新数据时创建新标签页
+
+            # 加载 HTML 内容
+            await page.set_content(html_content, timeout=60000)  # 60 秒
+
+            # 截图特定区域 (定位到 .card)
+            locator = page.locator(".card")
+
+            sanitized_name = sanitize_filename(willpower['willpower_name'])  # 清理文件名
+            screenshot_path = screenshot_dir / f"{sanitized_name}.png"
+            await locator.screenshot(path=str(screenshot_path))
+
+            # 关闭当前页面
+            await page.close()
+
+        await browser.close()
+
+    logger.success(f"All willpower files are created.")
 
 

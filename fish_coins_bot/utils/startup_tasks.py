@@ -41,7 +41,7 @@ async def initialize_live_state():
 
                     if live_status in allowed_status:
                         await BotLiveState.filter(id=record.id).update(live_state=live_status,live_time=live_time)
-                        logger.success(f"Update for Live ID {record.live_id}, Status: {live_status}")
+                        logger.warning(f"Update for Live ID {record.live_id}, Status: {live_status}")
                     else:
                         continue
                 else:

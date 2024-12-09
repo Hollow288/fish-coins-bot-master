@@ -63,8 +63,17 @@ def make_arms_img_url(arms: dict):
     arms["arms_charging_energy"] = arms_level(arms["arms_charging_energy"])
     arms["AlibabaPuHuiTi"] = FONT_HOST + "AlibabaPuHuiTi-3-55-Regular.otf"
     arms["ZCOOLKuaiLe"] = FONT_HOST + "ZCOOLKuaiLe-Regular.ttf"
-    arms["background_url"] = BACKGROUND_HOST + f"background-{arms["arms_name"]}.jpeg"
+    arms["background_url"] = BACKGROUND_HOST + "arms/" + f"background-{arms["arms_name"]}.jpeg"
     arms["default_background_url"] = BACKGROUND_HOST + "background.jpeg"
+
+
+
+# 让arms类中的一些文字换成图片路径
+def make_willpower_img_url(willpower: dict):
+    willpower["AlibabaPuHuiTi"] = FONT_HOST + "AlibabaPuHuiTi-3-55-Regular.otf"
+    willpower["ZCOOLKuaiLe"] = FONT_HOST + "ZCOOLKuaiLe-Regular.ttf"
+    willpower["background_url"] = BACKGROUND_HOST + "willpower/" + f"background-{willpower["willpower_name"]}.jpeg"
+    willpower["default_background_url"] = BACKGROUND_HOST + "background.jpeg"
 
 # 检查武器名称别名
 def check_arms_alias(arms_name:str):
@@ -85,3 +94,23 @@ def check_arms_alias(arms_name:str):
 
     # 如果没有找到对应的别名，返回原始名称
     return arms_name
+
+# 检查意志名称别名
+def check_willpower_alias(willpower_name:str):
+
+    # 读取 alias.json 文件
+    with open(Path(__file__).parent.parent / 'plugins' / 'hotta_wiki' / 'alias.json' , 'r', encoding='utf-8') as f:
+        alias_data = json.load(f)
+
+    # 获取意志的别名字典
+    will_aliases = alias_data.get('意志', {})
+
+    # 遍历每个武器的别名列表
+    for will_name, aliases in will_aliases.items():
+        # 如果传入的名字在某个别名列表中
+        if willpower_name in aliases:
+            # 返回该武器的主名称（第一个名称作为主名称）
+            return will_name
+
+    # 如果没有找到对应的别名，返回原始名称
+    return willpower_name
