@@ -159,7 +159,6 @@ async def make_all_arms_image():
 
     async with async_playwright() as p:
         browser = await p.firefox.launch(headless=True)
-        page = await browser.new_page()  # 只创建一个标签页
 
         for arms in arms_list:
             make_arms_img_url(arms)
@@ -181,6 +180,9 @@ async def make_all_arms_image():
             template = env.get_template("template.html")
             html_content = template.render(**arms)
 
+            # 创建新的页面
+            page = await browser.new_page()  # 每次处理新数据时创建新标签页
+
             # 加载 HTML 内容
             await page.set_content(html_content, timeout=60000)  # 60 秒
 
@@ -191,10 +193,11 @@ async def make_all_arms_image():
             screenshot_path = screenshot_dir / f"{sanitized_name}.png"
             await locator.screenshot(path=str(screenshot_path))
 
-            # 每次处理完成后，可以选择清除当前页面内容或重新加载（视需求而定）
-            await page.goto("about:blank")  # 重置页面内容，准备下一轮渲染
+            # 关闭当前页面
+            await page.close()
 
         await browser.close()
 
     logger.success(f"All files are created.")
+
 
