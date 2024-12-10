@@ -222,7 +222,7 @@ docker pull hollow288/nonebot-docker:latest
 运行：
 
 ```
-docker run -d --name nonebot-container -p 8080:8080 -v /opt/nonebot/.env:/app/.env -v /opt/nonebot/screenshots:/app/screenshots hollow288/nonebot-docker:latest
+docker run -d --name nonebot-container -p 8080:8080 -v /opt/nonebot/.env:/app/.env -v /opt/nonebot/screenshots:/app/screenshots -v /opt/nonebot/alias.json:/app/fish_coins_bot/plugins/hotta_wiki/alias.json hollow288/nonebot-docker:latest
 ```
 
 
