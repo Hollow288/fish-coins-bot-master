@@ -67,13 +67,16 @@ def make_arms_img_url(arms: dict):
     arms["default_background_url"] = BACKGROUND_HOST + "background.jpeg"
 
 
-
-# 让arms类中的一些文字换成图片路径
 def make_willpower_img_url(willpower: dict):
     willpower["AlibabaPuHuiTi"] = FONT_HOST + "AlibabaPuHuiTi-3-55-Regular.otf"
     willpower["ZCOOLKuaiLe"] = FONT_HOST + "ZCOOLKuaiLe-Regular.ttf"
     willpower["background_url"] = BACKGROUND_HOST + "willpower/" + f"background-{willpower["willpower_name"]}.jpeg"
     willpower["default_background_url"] = BACKGROUND_HOST + "background.jpeg"
+
+def make_yu_coins_img_url(yu_coins: dict):
+    yu_coins["AlibabaPuHuiTi"] = FONT_HOST + "AlibabaPuHuiTi-3-35-Thin.ttf"
+    yu_coins["ZCOOLKuaiLe"] = FONT_HOST + "ZCOOLKuaiLe-Regular.ttf"
+    yu_coins["logo_ht"] = MINIO_HOST + "logo_ht.png"
 
 # 检查武器名称别名
 def check_arms_alias(arms_name:str):

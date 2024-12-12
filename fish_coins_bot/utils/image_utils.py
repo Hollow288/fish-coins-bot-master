@@ -1,3 +1,5 @@
+from itertools import groupby
+
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 import httpx
 from io import BytesIO
@@ -8,8 +10,9 @@ from fish_coins_bot.database.hotta.arms import Arms,ArmsStarRatings,ArmsCharacte
 from jinja2 import Environment, FileSystemLoader
 
 from fish_coins_bot.database.hotta.willpower import Willpower, WillpowerSuit
+from fish_coins_bot.database.hotta.yu_coins import YuCoinsTaskType
 from fish_coins_bot.utils.model_utils import make_arms_img_url, highlight_numbers, sanitize_filename, \
-    make_willpower_img_url
+    make_willpower_img_url, make_yu_coins_img_url
 
 
 # 获取网络图片
@@ -205,6 +208,60 @@ async def make_all_arms_image():
     logger.success(f"All arms files are created.")
 
 
+async def make_yu_coins_type_image():
+
+    logger.warning(f"yu-coins-task-type.png will be create.")
+
+    screenshot_dir = Path(__file__).parent.parent.parent / "screenshots" / "yu-coins"
+    screenshot_dir.mkdir(exist_ok=True)
+
+    yu_coins_task_type_list = await YuCoinsTaskType.filter(del_flag="0").order_by("task_type_region").values("task_type_id","task_type_region", "task_type_npc", "task_type_position","task_type_details","task_type_reward")
+    processed_list = []
+    for region, group in groupby(yu_coins_task_type_list, key=lambda x: x["task_type_region"]):
+        group = list(group)  # 转成列表以便多次操作
+        rowspan = len(group)  # 当前组的行数
+        for idx, item in enumerate(group):
+            if idx == 0:
+                item["rowspan"] = rowspan  # 第一项标记 rowspan
+            else:
+                item["task_type_region"] = None  # 其余项置空
+            processed_list.append(item)
+
+
+
+    data = {"yu_coins_task_type_list":yu_coins_task_type_list,"title_name":"每周域币任务汇总","title_date":None}
+
+    # 创建 Jinja2 环境
+    env = Environment(loader=FileSystemLoader('templates'))
+    # env.filters['highlight_numbers'] = highlight_numbers  # 注册过滤器
+
+    async with async_playwright() as p:
+        browser = await p.firefox.launch(headless=True)
+        make_yu_coins_img_url(data)
+
+        # 渲染 HTML
+        template = env.get_template("template-yu-coins-type.html")
+        html_content = template.render(**data)
+
+        # 创建新的页面
+        page = await browser.new_page()  # 每次处理新数据时创建新标签页
+
+        # 加载 HTML 内容
+        await page.set_content(html_content, timeout=60000)  # 60 秒
+
+        # 截图特定区域 (定位到 .card)
+        locator = page.locator(".card")
+
+        sanitized_name = 'yu-coins-task-type'  # 清理文件名
+        screenshot_path = screenshot_dir / f"{sanitized_name}.png"
+        await locator.screenshot(path=str(screenshot_path))
+
+        # 关闭当前页面
+        await page.close()
+
+        await browser.close()
+
+    logger.success(f"yu-coins-task-type.png are created.")
 
 
 async def make_all_willpower_image():
