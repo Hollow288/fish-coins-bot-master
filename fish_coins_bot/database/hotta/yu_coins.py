@@ -16,10 +16,24 @@ class YuCoinsTaskType(Model):
 
 class YuCoinsTaskWeekly(Model):
     task_weekly_id = fields.IntField(pk=True, auto_increment=True, description="任务ID")
-    task_type_ids = fields.CharField(max_length=100, null=True, description="每周任务IDS")
     task_weekly_date = fields.DatetimeField(null=True, description="发布时间")
     del_flag = fields.CharField(max_length=1, default="0", null=True, description="是否删除（0未删除 1已删除）")
 
     class Meta:
         table = "yu_coins_task_weekly"
         comments = "每周域币任务"
+
+
+class YuCoinsTaskWeeklyDetail(Model):
+    """
+    每周域币任务明细
+    """
+    weekly_detail_id = fields.IntField(pk=True, description="明细ID")
+    task_weekly_id = fields.IntField(null=True, description="每周任务ID")
+    task_type = fields.ForeignKeyField('models.YuCoinsTaskType', related_name='weekly_details', on_delete=fields.CASCADE, null=True, description="任务种类ID")
+    task_weekly_contributors = fields.CharField(max_length=500, null=True, description="贡献者")
+    del_flag = fields.CharField(max_length=1, default="0", description="是否删除（0未删除 1已删除）")
+
+    class Meta:
+        table = "yu_coins_task_weekly_detail"
+        table_description = "每周域币任务明细"

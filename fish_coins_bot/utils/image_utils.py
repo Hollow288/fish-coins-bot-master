@@ -8,11 +8,12 @@ from pathlib import Path
 from playwright.async_api import async_playwright
 from fish_coins_bot.database.hotta.arms import Arms,ArmsStarRatings,ArmsCharacteristics,ArmsExclusives
 from jinja2 import Environment, FileSystemLoader
-
+from datetime import datetime, timedelta
 from fish_coins_bot.database.hotta.willpower import Willpower, WillpowerSuit
-from fish_coins_bot.database.hotta.yu_coins import YuCoinsTaskType
+from fish_coins_bot.database.hotta.yu_coins import YuCoinsTaskType, YuCoinsTaskWeeklyDetail
 from fish_coins_bot.utils.model_utils import make_arms_img_url, highlight_numbers, sanitize_filename, \
     make_willpower_img_url, make_yu_coins_img_url
+from fish_coins_bot.utils.yu_coins_utils import select_or_add_this_weekly_yu_coins_weekly_id
 
 
 # 获取网络图片
@@ -318,3 +319,82 @@ async def make_all_willpower_image():
     logger.success(f"All willpower files are created.")
 
 
+async def make_yu_coins_weekly_image():
+
+    logger.warning(f"yu-coins-task-weekly.png will be create.")
+
+    screenshot_dir = Path(__file__).parent / "screenshots" / "yu-coins"
+    screenshot_dir.mkdir(exist_ok=True)
+
+    task_weekly_id = await select_or_add_this_weekly_yu_coins_weekly_id()
+
+    weekly_details = await YuCoinsTaskWeeklyDetail.filter(del_flag="0",task_weekly_id=task_weekly_id).select_related("task_type")
+
+    # 收集 task_type 数据，并添加 task_weekly_contributors
+    task_type_list = [
+        {
+            "task_type_region": detail.task_type.task_type_region,
+            "task_type_npc": detail.task_type.task_type_npc,
+            "task_type_position": detail.task_type.task_type_position,
+            "task_type_details": detail.task_type.task_type_details,
+            "task_type_reward": detail.task_type.task_type_reward,
+            "task_weekly_contributors": detail.task_weekly_contributors,  # 加入贡献者信息
+        }
+        for detail in weekly_details if detail.task_type  # 确保 task_type 存在
+    ]
+
+
+    today = datetime.now()
+
+    # 计算本周的开始日期（周一）和结束日期（周日）
+    start_of_week = today - timedelta(days=today.weekday())  # 本周一
+    end_of_week = start_of_week + timedelta(days=6)  # 本周日
+
+    # 去掉时间部分，仅保留日期
+    start_of_week = start_of_week.date()  # 转为日期类型
+    end_of_week = end_of_week.date()  # 转为日期类型
+
+    processed_list = []
+    for region, group in groupby(task_type_list, key=lambda x: x["task_type_region"]):
+        group = list(group)  # 转成列表以便多次操作
+        rowspan = len(group)  # 当前组的行数
+        for idx, item in enumerate(group):
+            if idx == 0:
+                item["rowspan"] = rowspan  # 第一项标记 rowspan
+            else:
+                item["task_type_region"] = None  # 其余项置空
+            processed_list.append(item)
+
+    data = {"task_type_list":task_type_list,"title_name":"本周域币任务","start_of_week":start_of_week,"end_of_week":end_of_week}
+    # 创建 Jinja2 环境
+    env = Environment(loader=FileSystemLoader('templates'))
+
+    async with async_playwright() as p:
+        browser = await p.firefox.launch(headless=True)
+
+        make_yu_coins_img_url(data)
+
+
+        # 渲染 HTML
+        template = env.get_template("template-yu-coins-weekly.html")
+        html_content = template.render(**data)
+
+        # 创建新的页面
+        page = await browser.new_page()  # 每次处理新数据时创建新标签页
+
+        # 加载 HTML 内容
+        await page.set_content(html_content, timeout=60000)  # 60 秒
+
+        # 截图特定区域 (定位到 .card)
+        locator = page.locator(".card")
+
+        sanitized_name = 'yu-coins-task-weekly'  # 清理文件名
+        screenshot_path = screenshot_dir / f"{sanitized_name}.png"
+        await locator.screenshot(path=str(screenshot_path))
+
+        # 关闭当前页面
+        await page.close()
+
+        await browser.close()
+
+    logger.success(f"yu-coins-task-weekly.png are created.")
