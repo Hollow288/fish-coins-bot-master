@@ -42,7 +42,7 @@
 
     th, td {
 
-        padding: 15px;
+        padding: 10px;
         background-color: rgba(255, 255, 255, 0.2);
         color: #fff;
     }
@@ -76,22 +76,22 @@
             <tr>
                 <th style="width: 40px">序号</th>
                 <th style="width: 50px">区域</th>
-                <th style="width: 70px">NPC</th>
+                <th style="width: 120px">NPC</th>
                 <th style="width: 200px">位置</th>
                 <th>任务详情</th>
-                <th style="width: 110px">任务奖励</th>
+                <th style="width: 130px">任务奖励</th>
             </tr>
             </thead>
             <tbody>
                 {% for item in yu_coins_task_type_list %}
-                    <tr>
+                    <tr style="{{ item.task_type_id | different_colors }}">
                         <td>{{ item.task_type_id }}</td>
                         {% if item.task_type_region %}
                             <td rowspan="{{ item.rowspan }}">{{ item.task_type_region }}</td>
                         {% endif %}
-                        <td>{{ item.task_type_npc }}</td>
+                        <td><strong>{{ item.task_type_npc }}</strong></td>
                         <td>{{ item.task_type_position }}</td>
-                        <td>{{ item.task_type_details }}</td>
+                        <td>{{ item.task_type_details | the_font_bold }}</td>
                         <td>{{ item.task_type_reward }}</td>
                     </tr>
                 {% endfor %}

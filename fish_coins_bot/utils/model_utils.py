@@ -50,9 +50,44 @@ def highlight_numbers(text):
     return re.sub(r'(\d+)', r'<span style="color: red;">\1</span>', text)
 
 
+def different_colors(text):
+    try:
+        # 将 text 转换为整数
+        value = int(text)
+
+        # 根据范围返回对应的背景颜色
+        if 1 <= value <= 7:
+            return 'background-color: rgba(253, 193, 0, 0.2);'
+        elif 8 <= value <= 13:
+            return 'background-color: rgba(255, 255, 255, 0.2);'
+        elif 14 <= value <= 26:
+            return 'background-color: rgba(255, 0, 0, 0.2);'
+        elif 27 <= value <= 44:
+            return 'background-color: rgba(173, 216, 230, 0.2);'
+        else:
+            return ''  # 如果不在范围内，返回空字符串
+    except ValueError:
+        # 如果 text 不是有效的数字，返回默认空样式
+        return ''
+
+def the_font_bold(text):
+    # 使用正则表达式匹配括号及其内容，并替换为带 <strong> 标签的格式
+    result = re.sub(r'(\(.*?\))', r'<strong>\1</strong>', text)
+    return result
+
+
 def sanitize_filename(filename):
     """清理文件名，移除非法字符"""
     return re.sub(r'[<>:"/\\|?*]', '_', filename)
+
+# 提取用户输入的域币任务ID
+async def extract_yu_coins_type_id(input_string:str):
+
+    numbers = re.findall(r'\d+', input_string)
+
+    numbers = list(set(int(num) for num in numbers if 1 <= int(num) <= 44))
+
+    return numbers
 
 
 # 让arms类中的一些文字换成图片路径

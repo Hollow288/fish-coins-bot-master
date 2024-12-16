@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 from fish_coins_bot.database.hotta.willpower import Willpower, WillpowerSuit
 from fish_coins_bot.database.hotta.yu_coins import YuCoinsTaskType, YuCoinsTaskWeeklyDetail
 from fish_coins_bot.utils.model_utils import make_arms_img_url, highlight_numbers, sanitize_filename, \
-    make_willpower_img_url, make_yu_coins_img_url
+    make_willpower_img_url, make_yu_coins_img_url, different_colors, the_font_bold
 from fish_coins_bot.utils.yu_coins_utils import select_or_add_this_weekly_yu_coins_weekly_id
 
 
@@ -216,7 +216,7 @@ async def make_yu_coins_type_image():
     screenshot_dir = Path(__file__).parent.parent.parent / "screenshots" / "yu-coins"
     screenshot_dir.mkdir(exist_ok=True)
 
-    yu_coins_task_type_list = await YuCoinsTaskType.filter(del_flag="0").order_by("task_type_region").values("task_type_id","task_type_region", "task_type_npc", "task_type_position","task_type_details","task_type_reward")
+    yu_coins_task_type_list = await YuCoinsTaskType.filter(del_flag="0").order_by("task_type_id").values("task_type_id","task_type_region", "task_type_npc", "task_type_position","task_type_details","task_type_reward")
     processed_list = []
     for region, group in groupby(yu_coins_task_type_list, key=lambda x: x["task_type_region"]):
         group = list(group)  # 转成列表以便多次操作
@@ -234,7 +234,8 @@ async def make_yu_coins_type_image():
 
     # 创建 Jinja2 环境
     env = Environment(loader=FileSystemLoader('templates'))
-    # env.filters['highlight_numbers'] = highlight_numbers  # 注册过滤器
+    env.filters['different_colors'] = different_colors  # 注册过滤器
+    env.filters['the_font_bold'] = the_font_bold  # 注册过滤器
 
     async with async_playwright() as p:
         browser = await p.firefox.launch(headless=True)
@@ -323,7 +324,7 @@ async def make_yu_coins_weekly_image():
 
     logger.warning(f"yu-coins-task-weekly.png will be create.")
 
-    screenshot_dir = Path(__file__).parent / "screenshots" / "yu-coins"
+    screenshot_dir = Path(__file__).parent.parent.parent / "screenshots" / "yu-coins"
     screenshot_dir.mkdir(exist_ok=True)
 
     task_weekly_id = await select_or_add_this_weekly_yu_coins_weekly_id()
@@ -368,6 +369,7 @@ async def make_yu_coins_weekly_image():
     data = {"task_type_list":task_type_list,"title_name":"本周域币任务","start_of_week":start_of_week,"end_of_week":end_of_week}
     # 创建 Jinja2 环境
     env = Environment(loader=FileSystemLoader('templates'))
+    env.filters['the_font_bold'] = the_font_bold  # 注册过滤器
 
     async with async_playwright() as p:
         browser = await p.firefox.launch(headless=True)
