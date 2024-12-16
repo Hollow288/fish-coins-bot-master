@@ -118,6 +118,7 @@ flushed_yu_coins_weekly = on_command(
     block=True,
 )
 
+@flushed_yu_coins_weekly.handle()
 async def flushed_yu_coins_weekly_handle_function(args: Message = CommandArg()):
     global is_processing
 
