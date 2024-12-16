@@ -86,7 +86,7 @@
             <tbody>
                 {% for item in task_type_list %}
                     <tr>
-                        <td>{{ loop.index }}</td>
+                        <td>{{ item.weekly_detail_id }}</td>
                         {% if item.task_type_region %}
                             <td rowspan="{{ item.rowspan }}">{{ item.task_type_region }}</td>
                         {% endif %}

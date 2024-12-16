@@ -340,6 +340,7 @@ async def make_yu_coins_weekly_image():
             "task_type_details": detail.task_type.task_type_details,
             "task_type_reward": detail.task_type.task_type_reward,
             "task_weekly_contributors": detail.task_weekly_contributors,  # 加入贡献者信息
+            "weekly_detail_id": detail.weekly_detail_id,  # 加入明细ID
         }
         for detail in weekly_details if detail.task_type  # 确保 task_type 存在
     ]
