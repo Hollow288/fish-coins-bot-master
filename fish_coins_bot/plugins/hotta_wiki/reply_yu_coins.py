@@ -91,7 +91,7 @@ async def add_yu_coins_weekly_handle_function(event: GroupMessageEvent, args: Me
 
 
         for task_type_id in numbers:
-            weekly_detail = await YuCoinsTaskWeeklyDetail.filter(del_flag="0", task_weekly_id=task_weekly_id,
+            weekly_detail = await YuCoinsTaskWeeklyDetail.filter(task_weekly_id=task_weekly_id,
                                                                   task_type_id=task_type_id).first()
             if not weekly_detail:
                 await YuCoinsTaskWeeklyDetail.create(
@@ -101,10 +101,22 @@ async def add_yu_coins_weekly_handle_function(event: GroupMessageEvent, args: Me
                     del_flag="0"
                 )
             else:
-                if str(user_id) in weekly_detail.task_weekly_contributors:  # 判断 QQ 号是否已存在
-                    continue  # 如果存在，跳过该用户的处理
-                weekly_detail.task_weekly_contributors = weekly_detail.task_weekly_contributors + f"、{nickname}({user_id})"
-                await weekly_detail.save()
+                if str(user_id) in weekly_detail.task_weekly_contributors:
+                    if weekly_detail.del_flag == "0":
+                        # 如果用户已经存在且未被删除，则跳过
+                        continue
+                    else:
+                        # 如果用户存在但已删除，恢复该任务并更新
+                        weekly_detail.del_flag = "0"
+                        # 如果没有该用户，则将用户加入到贡献者列表
+                        if str(user_id) not in weekly_detail.task_weekly_contributors:
+                            weekly_detail.task_weekly_contributors += f"、{nickname}({user_id})"
+                else:
+                    # 如果该用户还没有贡献过，加入到 task_weekly_contributors 中
+                    weekly_detail.task_weekly_contributors += f"、{nickname}({user_id})"
+                    weekly_detail.del_flag = "0"
+            # 保存更新后的记录
+            await weekly_detail.save()
         await add_yu_coins_weekly.send("成功添加本周域币任务☀️\n使用'/刷新域币任务'指令以更新记录,感谢贡献！")
     else:
         await add_yu_coins_weekly.finish("指令错误,例如: /添加域币任务 1 2 11 20 ")
@@ -136,3 +148,30 @@ async def flushed_yu_coins_weekly_handle_function(args: Message = CommandArg()):
             await flushed_yu_coins_weekly.finish(
                 "本周域币任务图片处理完成☀️\n使用指令'/本周域币任务'进行查看吧！"
             )
+
+delete_yu_coins_weekly = on_command(
+    "删除域币任务",
+    rule=to_me() & Rule(is_group_chat),  # 使用自定义规则
+    aliases={"删除域币", "删除任务"},
+    priority=10,
+    block=True,
+)
+
+@delete_yu_coins_weekly.handle()
+async def delete_yu_coins_weekly_handle_function(event: GroupMessageEvent, args: Message = CommandArg()):
+    if task_ids := args.extract_plain_text():
+
+        # 需要删除的本周域币明细ID
+        numbers = await extract_yu_coins_type_id(task_ids)
+
+        for weekly_detail_id in numbers:
+            weekly_detail = await YuCoinsTaskWeeklyDetail.filter(weekly_detail_id=weekly_detail_id).first()
+            if not weekly_detail:
+                continue
+            else:
+                weekly_detail.del_flag = "1"
+            # 保存更新后的记录
+            await weekly_detail.save()
+        await add_yu_coins_weekly.send("成功删除本周域币任务☀️\n使用'/刷新域币任务'指令以更新记录,感谢贡献！")
+    else:
+        await add_yu_coins_weekly.finish("指令错误,例如: /删除域币任务 1 2 11 20 ")
