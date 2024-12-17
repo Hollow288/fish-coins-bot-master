@@ -26,7 +26,7 @@
     .card {
         width: 1000px;
         margin: 0 auto;
-        background-image: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url('{{ background_url }}'), url('{{ default_background_url }}');
+        background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('{{ background_url }}'), url('{{ default_background_url }}');
         background-size: cover;
         background-position: center;
         padding: 10px 30px 10px 30px;
@@ -201,8 +201,7 @@
                     {% for characteristics in star_characteristics %}
                     <div>
                         <div style="font-family: 'AlibabaPuHuiTi-3-55-Regular', serif;">
-                        <span style="font-size: 20px;color: peru">
-                        {{characteristics.items_name}} -</span>
+                        <span style="font-size: 20px;color: #6c390f"><strong>{{characteristics.items_name}} -</strong></span>
                             {{characteristics.items_describe | highlight_numbers }}
                         </div>
                     </div>
@@ -221,8 +220,7 @@
                     {% for exclusives in star_exclusives %}
                     <div>
                         <div style="font-family: 'AlibabaPuHuiTi-3-55-Regular', serif;">
-                        <span style="font-size: 20px;color: peru">
-                        {{exclusives.items_name}} -</span>
+                        <span style="font-size: 20px;color: #6c390f"><strong>{{exclusives.items_name}} -</strong></span>
                             {{exclusives.items_describe | highlight_numbers }}
                         </div>
                     </div>
@@ -241,8 +239,7 @@
                     {% for ratings in star_ratings %}
                     <div>
                         <div style="font-family: 'AlibabaPuHuiTi-3-55-Regular', serif;">
-                        <span style="font-size: 20px;color: peru">
-                        {{ratings.items_name}} -</span>
+                        <span style="font-size: 20px;color: #6c390f"><strong>{{ratings.items_name}} -</strong></span>
                             {{ratings.items_describe | highlight_numbers }}
                         </div>
                     </div>
