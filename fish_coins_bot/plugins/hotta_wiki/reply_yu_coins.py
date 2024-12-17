@@ -100,6 +100,7 @@ async def add_yu_coins_weekly_handle_function(event: GroupMessageEvent, args: Me
                     task_weekly_contributors=f"{nickname}({user_id})",
                     del_flag="0"
                 )
+                continue
             else:
                 if str(user_id) in weekly_detail.task_weekly_contributors:
                     if weekly_detail.del_flag == "0":
