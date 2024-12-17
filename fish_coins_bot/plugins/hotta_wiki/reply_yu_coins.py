@@ -5,8 +5,6 @@ from nonebot.adapters import Message
 from nonebot.params import CommandArg
 from pathlib import Path
 from nonebot.adapters.onebot.v11 import MessageSegment
-from datetime import datetime, timedelta
-from tortoise.expressions import Q
 import asyncio
 
 from fish_coins_bot.database.hotta.yu_coins import YuCoinsTaskWeekly, YuCoinsTaskWeeklyDetail
@@ -103,9 +101,11 @@ async def add_yu_coins_weekly_handle_function(event: GroupMessageEvent, args: Me
                     del_flag="0"
                 )
             else:
+                if str(user_id) in weekly_detail.task_weekly_contributors:  # 判断 QQ 号是否已存在
+                    continue  # 如果存在，跳过该用户的处理
                 weekly_detail.task_weekly_contributors = weekly_detail.task_weekly_contributors + f"、{nickname}({user_id})"
                 await weekly_detail.save()
-        await add_yu_coins_weekly.send("成功添加本周域币任务☀️\n使用'/刷新域币任务'指令更新记录,感谢贡献！")
+        await add_yu_coins_weekly.send("成功添加本周域币任务☀️\n使用'/刷新域币任务'指令以更新记录,感谢贡献！")
     else:
         await add_yu_coins_weekly.finish("指令错误,例如: /添加域币任务 1 2 11 20 ")
 
@@ -122,20 +122,17 @@ flushed_yu_coins_weekly = on_command(
 async def flushed_yu_coins_weekly_handle_function(args: Message = CommandArg()):
     global is_processing
 
-    # 尝试获取锁，设置超时或立即返回
-    if not lock.locked() and await lock.acquire():
+    if lock.locked():
+        await flushed_yu_coins_weekly.finish("本周域币任务图片正在处理中😴\n请3-5分钟后重试...")
+    async with lock:
         if is_processing:
-            await add_yu_coins_weekly.finish("本周域币任务图片正在处理中,请3-5分钟后重试...")
-        # 设置标志为正在处理中
+            await flushed_yu_coins_weekly.finish("本周域币任务图片正在处理中😴\n请3-5分钟后重试...")
         is_processing = True
         try:
-            # 你的实际业务逻辑
+            await flushed_yu_coins_weekly.send("正在处理本周域币任务图片😴\n请稍等...")
             await make_yu_coins_weekly_image()
         finally:
-            # 处理完成后，重置标志
             is_processing = False
-            await add_yu_coins_weekly.finish(
+            await flushed_yu_coins_weekly.finish(
                 "本周域币任务图片处理完成☀️\n使用指令'/本周域币任务'进行查看吧！"
             )
-    else:
-        await add_yu_coins_weekly.finish("本周域币任务图片正在处理中,请3-5分钟后重试...")
