@@ -136,13 +136,13 @@ async def flushed_yu_coins_weekly_handle_function(args: Message = CommandArg()):
     global is_processing
 
     if lock.locked():
-        await flushed_yu_coins_weekly.finish("本周域币任务图片正在处理中😴\n请3-5分钟后重试...")
+        await flushed_yu_coins_weekly.finish("本周域币任务图片正在处理中,请3-5分钟后重试...")
     async with lock:
         if is_processing:
-            await flushed_yu_coins_weekly.finish("本周域币任务图片正在处理中😴\n请3-5分钟后重试...")
+            await flushed_yu_coins_weekly.finish("本周域币任务图片正在处理中,请3-5分钟后重试...")
         is_processing = True
         try:
-            await flushed_yu_coins_weekly.send("正在处理本周域币任务图片😴\n请稍等...")
+            await flushed_yu_coins_weekly.send("正在处理本周域币任务图片,请稍等...")
             await make_yu_coins_weekly_image()
         finally:
             is_processing = False
