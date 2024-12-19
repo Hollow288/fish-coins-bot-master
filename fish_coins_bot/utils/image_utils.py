@@ -332,18 +332,21 @@ async def make_yu_coins_weekly_image():
     weekly_details = await YuCoinsTaskWeeklyDetail.filter(del_flag="0",task_weekly_id=task_weekly_id).select_related("task_type")
 
     # 收集 task_type 数据，并添加 task_weekly_contributors
-    task_type_list = [
-        {
-            "task_type_region": detail.task_type.task_type_region,
-            "task_type_npc": detail.task_type.task_type_npc,
-            "task_type_position": detail.task_type.task_type_position,
-            "task_type_details": detail.task_type.task_type_details,
-            "task_type_reward": detail.task_type.task_type_reward,
-            "task_weekly_contributors": detail.task_weekly_contributors,  # 加入贡献者信息
-            "weekly_detail_id": detail.weekly_detail_id,  # 加入明细ID
-        }
-        for detail in weekly_details if detail.task_type  # 确保 task_type 存在
-    ]
+    task_type_list = sorted(
+        [
+            {
+                "task_type_region": detail.task_type.task_type_region,
+                "task_type_npc": detail.task_type.task_type_npc,
+                "task_type_position": detail.task_type.task_type_position,
+                "task_type_details": detail.task_type.task_type_details,
+                "task_type_reward": detail.task_type.task_type_reward,
+                "task_weekly_contributors": detail.task_weekly_contributors,  # 加入贡献者信息
+                "weekly_detail_id": detail.weekly_detail_id,  # 加入明细ID
+            }
+            for detail in weekly_details if detail.task_type  # 确保 task_type 存在
+        ],
+        key=lambda x: x["task_type_region"],  # 按 task_type_region 排序
+    )
 
 
     today = datetime.now()
