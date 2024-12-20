@@ -7,6 +7,7 @@ from pathlib import Path
 from nonebot.adapters.onebot.v11 import MessageSegment
 
 from fish_coins_bot.database.hotta.yu_coins import YuCoinsTaskWeeklyDetail
+from fish_coins_bot.utils.image_utils import flushed_yu_nuo_weekly_images
 from fish_coins_bot.utils.model_utils import extract_yu_coins_type_id
 from fish_coins_bot.utils.yu_coins_utils import select_or_add_this_weekly_yu_coins_weekly_id
 
@@ -125,7 +126,7 @@ flushed_yu_coins_weekly = on_command(
 
 @flushed_yu_coins_weekly.handle()
 async def flushed_yu_coins_weekly_handle_function(args: Message = CommandArg()):
-    await flushed_yu_coins_weekly_handle_function(flushed_yu_coins_weekly,"域币")
+    return await flushed_yu_nuo_weekly_images(flushed_yu_coins_weekly,"域币")
 
 delete_yu_coins_weekly = on_command(
     "删除域币任务",

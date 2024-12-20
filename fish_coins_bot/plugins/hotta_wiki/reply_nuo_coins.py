@@ -7,9 +7,8 @@ from pathlib import Path
 from nonebot.adapters.onebot.v11 import MessageSegment
 import asyncio
 
-from fish_coins_bot.database.hotta.nuo_coins import NuoCoinsTaskWeekly, NuoCoinsTaskWeeklyDetail
-from fish_coins_bot.plugins.hotta_wiki import flushed_yu_coins_weekly_handle_function
-from fish_coins_bot.utils.image_utils import make_nuo_coins_weekly_image
+from fish_coins_bot.database.hotta.nuo_coins import NuoCoinsTaskWeeklyDetail
+from fish_coins_bot.utils.image_utils import flushed_yu_nuo_weekly_images
 from fish_coins_bot.utils.model_utils import extract_nuo_coins_type_id
 from fish_coins_bot.utils.nuo_coins_utils import select_or_add_this_weekly_nuo_coins_weekly_id
 
@@ -134,7 +133,7 @@ flushed_nuo_coins_weekly = on_command(
 
 @flushed_nuo_coins_weekly.handle()
 async def flushed_nuo_coins_weekly_handle_function(args: Message = CommandArg()):
-    await flushed_yu_coins_weekly_handle_function(flushed_nuo_coins_weekly,"诺元")
+    return await flushed_yu_nuo_weekly_images(flushed_nuo_coins_weekly, "诺元")
 
 
 

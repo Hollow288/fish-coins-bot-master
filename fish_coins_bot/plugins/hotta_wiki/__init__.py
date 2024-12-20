@@ -23,5 +23,4 @@ __all__ = [
     "add_nuo_coins_weekly_handle_function",
     "delete_nuo_coins_weekly_handle_function",
     "flushed_nuo_coins_weekly_handle_function"
-    ]  # 明确导出的函数
-
+]  # 明确导出的函数
