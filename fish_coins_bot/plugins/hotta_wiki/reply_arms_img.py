@@ -16,7 +16,7 @@ def is_group_chat(event) -> bool:
 
 arms = on_command(
     "武器图鉴",
-    rule=to_me() & Rule(is_group_chat),  # 使用自定义规则
+    rule= Rule(is_group_chat),  # 使用自定义规则
     aliases={"武器"},
     priority=10,
     block=True,
@@ -38,4 +38,4 @@ async def arms_img_handle_function(args: Message = CommandArg()):
         else:
             await arms.finish(f"没有找到武器名为 `{arms_name}` 的图鉴,快联系作者催他收录吧~")
     else:
-        await arms.finish("指令错误,例如: /武器图鉴 静澜")
+        await arms.finish("指令错误,例如: 武器图鉴 静澜")

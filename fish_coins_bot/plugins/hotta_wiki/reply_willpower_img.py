@@ -1,5 +1,3 @@
-import os
-
 from nonebot import on_command
 from nonebot.rule import Rule, to_me
 from nonebot.adapters.onebot.v11 import GroupMessageEvent  # 仅适用于 OneBot 适配器
@@ -16,7 +14,7 @@ def is_group_chat(event) -> bool:
 
 willpower = on_command(
     "意志图鉴",
-    rule=to_me() & Rule(is_group_chat),  # 使用自定义规则
+    rule= Rule(is_group_chat),  # 使用自定义规则
     aliases={"意志"},
     priority=10,
     block=True,
@@ -38,4 +36,4 @@ async def willpower_img_handle_function(args: Message = CommandArg()):
         else:
             await willpower.finish(f"没有找到意志名为 `{willpower_name}` 的图鉴,快联系作者催他收录吧~")
     else:
-        await willpower.finish("指令错误,例如: /意志图鉴 烈烈红莲")
+        await willpower.finish("指令错误,例如: 意志图鉴 烈烈红莲")

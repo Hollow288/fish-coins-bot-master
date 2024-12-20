@@ -1,14 +1,12 @@
 from nonebot import on_command
-from nonebot.rule import Rule, to_me
+from nonebot.rule import Rule
 from nonebot.adapters.onebot.v11 import GroupMessageEvent  # 仅适用于 OneBot 适配器
 from nonebot.adapters import Message
 from nonebot.params import CommandArg
 from pathlib import Path
 from nonebot.adapters.onebot.v11 import MessageSegment
-import asyncio
 
-from fish_coins_bot.database.hotta.yu_coins import YuCoinsTaskWeekly, YuCoinsTaskWeeklyDetail
-from fish_coins_bot.utils.image_utils import make_yu_coins_weekly_image
+from fish_coins_bot.database.hotta.yu_coins import YuCoinsTaskWeeklyDetail
 from fish_coins_bot.utils.model_utils import extract_yu_coins_type_id
 from fish_coins_bot.utils.yu_coins_utils import select_or_add_this_weekly_yu_coins_weekly_id
 
@@ -17,16 +15,10 @@ def is_group_chat(event) -> bool:
     return isinstance(event, GroupMessageEvent)
 
 
-# 定义一个 asyncio.Lock，用于控制方法的执行
-lock = asyncio.Lock()
-
-# 全局变量，表示方法是否正在执行
-is_processing = False
-
 
 yu_coins_type = on_command(
     "域币任务汇总",
-    rule=to_me() & Rule(is_group_chat),  # 使用自定义规则
+    rule= Rule(is_group_chat),  # 使用自定义规则
     aliases={"域币汇总", "每周域币任务汇总"},
     priority=10,
     block=True,
@@ -48,7 +40,7 @@ async def yu_coins_type_img_handle_function(args: Message = CommandArg()):
 
 yu_coins_weekly = on_command(
     "本周域币任务",
-    rule=to_me() & Rule(is_group_chat),  # 使用自定义规则
+    rule= Rule(is_group_chat),  # 使用自定义规则
     aliases={"本周域币", "本周域币任务汇总"},
     priority=10,
     block=True,
@@ -70,8 +62,8 @@ async def yu_coins_weekly_img_handle_function(args: Message = CommandArg()):
 
 add_yu_coins_weekly = on_command(
     "添加域币任务",
-    rule=to_me() & Rule(is_group_chat),  # 使用自定义规则
-    aliases={"添加域币", "添加任务"},
+    rule= Rule(is_group_chat),  # 使用自定义规则
+    aliases={"添加域币"},
     priority=10,
     block=True,
 )
@@ -125,7 +117,7 @@ async def add_yu_coins_weekly_handle_function(event: GroupMessageEvent, args: Me
 
 flushed_yu_coins_weekly = on_command(
     "刷新域币任务",
-    rule=to_me() & Rule(is_group_chat),  # 使用自定义规则
+    rule= Rule(is_group_chat),  # 使用自定义规则
     aliases={"刷新本周域币", "刷新域币"},
     priority=10,
     block=True,
@@ -133,27 +125,12 @@ flushed_yu_coins_weekly = on_command(
 
 @flushed_yu_coins_weekly.handle()
 async def flushed_yu_coins_weekly_handle_function(args: Message = CommandArg()):
-    global is_processing
-
-    if lock.locked():
-        await flushed_yu_coins_weekly.finish("本周域币任务图片正在处理中,请3-5分钟后重试...")
-    async with lock:
-        if is_processing:
-            await flushed_yu_coins_weekly.finish("本周域币任务图片正在处理中,请3-5分钟后重试...")
-        is_processing = True
-        try:
-            await flushed_yu_coins_weekly.send("正在处理本周域币任务图片,请稍等...")
-            await make_yu_coins_weekly_image()
-        finally:
-            is_processing = False
-            await flushed_yu_coins_weekly.finish(
-                "本周域币任务图片处理完成☀️\n使用指令'/本周域币任务'进行查看吧！"
-            )
+    await flushed_yu_coins_weekly_handle_function(flushed_yu_coins_weekly,"域币")
 
 delete_yu_coins_weekly = on_command(
     "删除域币任务",
-    rule=to_me() & Rule(is_group_chat),  # 使用自定义规则
-    aliases={"删除域币", "删除任务"},
+    rule= Rule(is_group_chat),  # 使用自定义规则
+    aliases={"删除域币"},
     priority=10,
     block=True,
 )
