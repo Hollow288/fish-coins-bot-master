@@ -579,5 +579,5 @@ async def flushed_yu_nuo_weekly_images(matcher: Matcher, type_name: str):
         finally:
             is_processing = False
             await matcher.finish(
-                f"本周{type_name}任务图片处理完成☀️\n使用指令'/本周{type_name}任务'进行查看吧！"
+                f"本周{type_name}任务图片处理完成☀️\n使用指令'本周{type_name}任务'进行查看吧！"
             )

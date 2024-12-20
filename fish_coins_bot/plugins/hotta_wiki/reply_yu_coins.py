@@ -111,9 +111,9 @@ async def add_yu_coins_weekly_handle_function(event: GroupMessageEvent, args: Me
                     weekly_detail.del_flag = "0"
             # 保存更新后的记录
             await weekly_detail.save()
-        await add_yu_coins_weekly.send("成功添加本周域币任务☀️\n使用'/刷新域币任务'指令以更新记录,感谢贡献！")
+        await add_yu_coins_weekly.send("成功添加本周域币任务☀️\n使用'刷新域币任务'指令以更新记录,感谢贡献！")
     else:
-        await add_yu_coins_weekly.finish("指令错误,例如: /添加域币任务 1 2 11 20 ")
+        await add_yu_coins_weekly.finish("指令错误,例如: 添加域币任务 1 2 11 20 ")
 
 
 flushed_yu_coins_weekly = on_command(
@@ -151,6 +151,6 @@ async def delete_yu_coins_weekly_handle_function(event: GroupMessageEvent, args:
                 weekly_detail.del_flag = "1"
             # 保存更新后的记录
             await weekly_detail.save()
-        await add_yu_coins_weekly.send("成功删除本周域币任务☀️\n使用'/刷新域币任务'指令以更新记录,感谢贡献！")
+        await add_yu_coins_weekly.send("成功删除本周域币任务☀️\n使用'刷新域币任务'指令以更新记录,感谢贡献！")
     else:
-        await add_yu_coins_weekly.finish("指令错误,例如: /删除域币任务 1 2 11 20 ")
+        await add_yu_coins_weekly.finish("指令错误,例如: 删除域币任务 1 2 11 20 ")
