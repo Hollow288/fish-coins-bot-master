@@ -169,11 +169,12 @@
                 <div style="display: flex;">
                     <div class="font-other-title">
                         <div style="display: flex">
+
                             <div>
-                                武器充能:
+                                武器破防:
                             </div>
                             <div class="pfcn">
-                                {{arms_charging_energy}}
+                                {{arms_overwhelmed}}
                             </div>
                         </div>
                     </div>
@@ -181,10 +182,10 @@
                         <!--Todo 为什么这里没对齐-->
                         <div style="display: flex;margin-left: 15px">
                             <div>
-                                武器破防:
+                                武器充能:
                             </div>
                             <div class="pfcn">
-                                {{arms_overwhelmed}}
+                                {{arms_charging_energy}}
                             </div>
                         </div>
                     </div>
@@ -201,7 +202,7 @@
                     {% for characteristics in star_characteristics %}
                     <div>
                         <div style="font-family: 'AlibabaPuHuiTi-3-55-Regular', serif;">
-                        <span style="font-size: 20px;color: #6c390f"><strong>{{characteristics.items_name}} -</strong></span>
+                        <span style="font-size: 20px;color: #d86b01"><strong>{{characteristics.items_name}} -</strong></span>
                             {{characteristics.items_describe | highlight_numbers }}
                         </div>
                     </div>
@@ -220,7 +221,7 @@
                     {% for exclusives in star_exclusives %}
                     <div>
                         <div style="font-family: 'AlibabaPuHuiTi-3-55-Regular', serif;">
-                        <span style="font-size: 20px;color: #6c390f"><strong>{{exclusives.items_name}} -</strong></span>
+                        <span style="font-size: 20px;color: #d86b01"><strong>{{exclusives.items_name}} -</strong></span>
                             {{exclusives.items_describe | highlight_numbers }}
                         </div>
                     </div>
@@ -239,7 +240,7 @@
                     {% for ratings in star_ratings %}
                     <div>
                         <div style="font-family: 'AlibabaPuHuiTi-3-55-Regular', serif;">
-                        <span style="font-size: 20px;color: #6c390f"><strong>{{ratings.items_name}} -</strong></span>
+                        <span style="font-size: 20px;color: #d86b01"><strong>{{ratings.items_name}} -</strong></span>
                             {{ratings.items_describe | highlight_numbers }}
                         </div>
                     </div>

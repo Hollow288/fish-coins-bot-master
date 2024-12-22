@@ -34,9 +34,9 @@ arms_attribute_url = {
 def arms_level(arms):
 
     # 判断并返回等级
-    if arms >= 13:
+    if arms >= 14.1:
         return "SS"
-    elif arms >= 10:
+    elif arms >= 10.1:
         return "S"
     elif arms >= 7:
         return "A"
