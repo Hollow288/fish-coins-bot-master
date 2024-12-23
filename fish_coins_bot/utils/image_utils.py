@@ -9,7 +9,8 @@ from nonebot.internal.matcher import Matcher
 from nonebot.log import logger
 from pathlib import Path
 from playwright.async_api import async_playwright
-from fish_coins_bot.database.hotta.arms import Arms,ArmsStarRatings,ArmsCharacteristics,ArmsExclusives
+from fish_coins_bot.database.hotta.arms import Arms, ArmsStarRatings, ArmsCharacteristics, ArmsExclusives, \
+    ArmsPrimaryAttacks, ArmsDodgeAttacks, ArmsCooperationAttacks, ArmsSkillAttacks
 from jinja2 import Environment, FileSystemLoader
 from datetime import datetime, timedelta
 
@@ -581,3 +582,71 @@ async def flushed_yu_nuo_weekly_images(matcher: Matcher, type_name: str):
             await matcher.finish(
                 f"本周{type_name}任务图片处理完成☀️\n使用指令'本周{type_name}任务'进行查看吧！"
             )
+
+
+async def make_all_arms_attack_image():
+
+    screenshot_dir = Path(__file__).parent.parent.parent / "screenshots" / "arms-attack"
+    screenshot_dir.mkdir(exist_ok=True)
+
+    files = [file.stem for file in screenshot_dir.iterdir() if file.is_file()]
+    logger.warning(f"The following arms-attack documents already exist: {files}. Skip")
+
+    arms_list = await Arms.filter(del_flag="0").values("arms_id", "arms_type", "arms_attribute", "arms_name", "arms_overwhelmed",
+                                        "arms_charging_energy", "arms_thumbnail_url")
+
+    arms_list = [arms for arms in arms_list if arms["arms_name"] not in files]
+    arms_names = [arms["arms_name"] for arms in arms_list]
+
+    logger.warning(f"The following arms-attack documents will be created: {arms_names}.")
+
+    # 创建 Jinja2 环境
+    env = Environment(loader=FileSystemLoader('templates'))
+    env.filters['highlight_numbers'] = highlight_numbers  # 注册过滤器
+
+    async with async_playwright() as p:
+        browser = await p.firefox.launch(headless=True)
+
+        for arms in arms_list:
+            make_arms_img_url(arms)
+
+            # 普攻
+            primary_attacks = await ArmsPrimaryAttacks.filter(arms_id=arms["arms_id"]).values("items_name", "items_describe")
+            # 闪攻
+            dodge_attacks = await ArmsDodgeAttacks.filter(arms_id=arms["arms_id"]).values("items_name",
+                                                                                                    "items_describe")
+            # 联携
+            cooperation_attacks = await ArmsCooperationAttacks.filter(arms_id=arms["arms_id"]).values("items_name",
+                                                                                          "items_describe")
+            # 技能
+            skill_attacks = await ArmsSkillAttacks.filter(arms_id=arms["arms_id"]).values("items_name",
+                                                                                          "items_describe")
+
+            arms["primary_attacks"] = primary_attacks
+            arms["dodge_attacks"] = dodge_attacks
+            arms["cooperation_attacks"] = cooperation_attacks
+            arms["skill_attacks"] = skill_attacks
+
+            # 渲染 HTML
+            template = env.get_template("template-arms-attack.html")
+            html_content = template.render(**arms)
+
+            # 创建新的页面
+            page = await browser.new_page()  # 每次处理新数据时创建新标签页
+
+            # 加载 HTML 内容
+            await page.set_content(html_content, timeout=60000)  # 60 秒
+
+            # 截图特定区域 (定位到 .card)
+            locator = page.locator(".card")
+
+            sanitized_name = sanitize_filename(arms['arms_name'])  # 清理文件名
+            screenshot_path = screenshot_dir / f"{sanitized_name}.png"
+            await locator.screenshot(path=str(screenshot_path))
+
+            # 关闭当前页面
+            await page.close()
+
+        await browser.close()
+
+    logger.success(f"All arms-attack files are created.")

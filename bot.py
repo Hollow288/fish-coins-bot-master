@@ -4,7 +4,7 @@ from fish_coins_bot.utils.startup_tasks import initialize_live_state
 from tortoise import Tortoise
 from fish_coins_bot.database import database_config
 from fish_coins_bot.utils.image_utils import make_all_arms_image, make_all_willpower_image, make_yu_coins_type_image, \
-    make_yu_coins_weekly_image, make_nuo_coins_type_image, make_nuo_coins_weekly_image
+    make_yu_coins_weekly_image, make_nuo_coins_type_image, make_nuo_coins_weekly_image, make_all_arms_attack_image
 
 # 初始化 NoneBot
 nonebot.init()
@@ -24,6 +24,8 @@ async def do_something():
     await initialize_live_state()
     # 初始化武器图片
     await make_all_arms_image()
+    # 初始化武器攻击模组图片
+    await make_all_arms_attack_image()
     # 初始化意志图片
     await make_all_willpower_image()
     # 初始化每周域币汇总图片

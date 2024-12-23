@@ -44,9 +44,11 @@ def arms_level(arms):
         return "B"
 
 
-
 def highlight_numbers(text):
-    # 正则表达式，匹配所有数字
+    # 将换行符(\n)替换为 <br> 标签
+    text = re.sub(r'\n', r'<br>', text)
+
+    # 正则表达式，匹配所有数字并高亮
     return re.sub(r'(\d+)', r'<span style="color: red;">\1</span>', text)
 
 

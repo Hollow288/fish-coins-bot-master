@@ -98,3 +98,103 @@ class ArmsExclusives(Model):
         table = "arms_exclusives"  # 表名
         verbose_name = "武器专属"
         verbose_name_plural = "武器专属"
+
+
+
+class ArmsCooperationAttacks(Model):
+    cooperation_attacks_id = fields.IntField(
+        pk=True,  # 设置为主键
+        auto_increment=True,
+        description="联携id"
+    )
+    arms_id = fields.IntField(
+        description="武器id"
+    )
+    items_name = fields.CharField(
+        max_length=200,
+        null=True,
+        description="词条名称"
+    )
+    items_describe = fields.TextField(
+        null=True,
+        description="词条描述"
+    )
+
+    class Meta:
+        table = "arms_cooperation_attacks"  # 表名
+        verbose_name = "武器联携"
+        verbose_name_plural = "武器联携"
+
+class ArmsDodgeAttacks(Model):
+    dodge_attacks_id = fields.IntField(
+        pk=True,  # 设置为主键
+        auto_increment=True,
+        description="闪攻id"
+    )
+    arms_id = fields.IntField(
+        description="武器id"
+    )
+    items_name = fields.CharField(
+        max_length=200,
+        null=True,
+        description="词条名称"
+    )
+    items_describe = fields.TextField(
+        null=True,
+        description="词条描述"
+    )
+
+    class Meta:
+        table = "arms_dodge_attacks"  # 表名
+        verbose_name = "武器闪攻"
+        verbose_name_plural = "武器闪攻"
+
+
+class ArmsSkillAttacks(Model):
+    skill_attacks_id = fields.IntField(
+        pk=True,  # 设置为主键
+        auto_increment=True,
+        description="技能id"
+    )
+    arms_id = fields.IntField(
+        description="武器id"
+    )
+    items_name = fields.CharField(
+        max_length=200,
+        null=True,
+        description="词条名称"
+    )
+    items_describe = fields.TextField(
+        null=True,
+        description="词条描述"
+    )
+
+    class Meta:
+        table = "arms_skill_attacks"  # 表名
+        verbose_name = "武器技能"
+        verbose_name_plural = "武器技能"
+
+
+class ArmsPrimaryAttacks(Model):
+    primary_attacks_id = fields.IntField(
+        pk=True,  # 设置为主键
+        auto_increment=True,
+        description="普攻id"
+    )
+    arms_id = fields.IntField(
+        description="武器id"
+    )
+    items_name = fields.CharField(
+        max_length=200,
+        null=True,
+        description="词条名称"
+    )
+    items_describe = fields.TextField(
+        null=True,
+        description="词条描述"
+    )
+
+    class Meta:
+        table = "arms_primary_attacks"  # 表名
+        verbose_name = "武器普攻"
+        verbose_name_plural = "武器普攻"
