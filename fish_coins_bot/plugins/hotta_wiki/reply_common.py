@@ -1,16 +1,12 @@
-from nonebot.adapters.onebot.v11 import ( Bot, Event, GroupMessageEvent, PokeNotifyEvent )
 from nonebot import on_notice
+from nonebot.adapters.onebot.v11 import Bot, Event, PokeNotifyEvent
 from nonebot.rule import Rule
 from nonebot.log import logger
 
-
 def is_poke_me(event: Event) -> bool:
-    return isinstance(event, GroupMessageEvent) and event.is_tome() and isinstance(event, PokeNotifyEvent)
+    return isinstance(event, PokeNotifyEvent) and event.target_id == event.self_id and event.group_id is not None
 
-poke_me = on_notice(
-    rule=Rule(is_poke_me)
-)
-
+poke_me = on_notice(rule=Rule(is_poke_me))
 
 @poke_me.handle()
 async def handle_poke_event(bot: Bot, event: PokeNotifyEvent):
