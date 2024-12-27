@@ -59,13 +59,13 @@ def yu_different_colors(text):
 
         # 根据范围返回对应的背景颜色
         if 1 <= value <= 7:
-            return 'background-color: rgba(253, 193, 0, 0.2);'
+            return 'background-color: rgba(253, 193, 0, 0.35);'
         elif 8 <= value <= 13:
-            return 'background-color: rgba(255, 255, 255, 0.2);'
+            return 'background-color: rgba(105, 139, 34, 0.35);'
         elif 14 <= value <= 26:
-            return 'background-color: rgba(255, 0, 0, 0.2);'
+            return 'background-color: rgba(32, 178, 170, 0.35);'
         elif 27 <= value <= 44:
-            return 'background-color: rgba(173, 216, 230, 0.2);'
+            return 'background-color: rgba(85, 96, 143, 0.35);'
         else:
             return ''  # 如果不在范围内，返回空字符串
     except ValueError:
@@ -137,12 +137,12 @@ def make_willpower_img_url(willpower: dict):
     willpower["default_background_url"] = BACKGROUND_HOST + "background.jpeg"
 
 def make_yu_coins_img_url(yu_coins: dict):
-    yu_coins["AlibabaPuHuiTi"] = FONT_HOST + "AlibabaPuHuiTi-3-35-Thin.ttf"
+    yu_coins["AlibabaPuHuiTi"] = FONT_HOST + "AlibabaPuHuiTi-3-45-Light.otf"
     yu_coins["ZCOOLKuaiLe"] = FONT_HOST + "ZCOOLKuaiLe-Regular.ttf"
     yu_coins["logo_ht"] = MINIO_HOST + "logo_ht.png"
     
 def make_nuo_coins_img_url(nuo_coins: dict):
-    nuo_coins["AlibabaPuHuiTi"] = FONT_HOST + "AlibabaPuHuiTi-3-35-Thin.ttf"
+    nuo_coins["AlibabaPuHuiTi"] = FONT_HOST + "AlibabaPuHuiTi-3-45-Light.otf"
     nuo_coins["ZCOOLKuaiLe"] = FONT_HOST + "ZCOOLKuaiLe-Regular.ttf"
     nuo_coins["logo_ht"] = MINIO_HOST + "logo_ht.png"
 

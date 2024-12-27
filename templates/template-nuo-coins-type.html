@@ -85,9 +85,9 @@
             <tbody>
                 {% for item in nuo_coins_task_type_list %}
                     <tr style="{{ item.task_type_id | different_colors }}">
-                        <td>{{ item.task_type_id }}</td>
+                        <td><strong>{{ item.task_type_id }}</strong></td>
                         {% if item.task_type_region %}
-                            <td rowspan="{{ item.rowspan }}">{{ item.task_type_region }}</td>
+                            <td rowspan="{{ item.rowspan }}"><strong>{{ item.task_type_region }}</strong></td>
                         {% endif %}
                         <td><strong>{{ item.task_type_npc }}</strong></td>
                         <td>{{ item.task_type_position }}</td>
