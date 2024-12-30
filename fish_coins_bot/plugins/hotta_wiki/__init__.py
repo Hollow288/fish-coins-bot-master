@@ -3,7 +3,7 @@ from .make_arms_img import arms_img_scheduled
 from .make_willpower_img import willpower_img_scheduled
 from .reply_arms_attack_img import arms_attack_img_handle_function
 from .reply_arms_img import arms_img_handle_function
-from .reply_common import handle_poke_event
+from .reply_common import handle_poke_event, help_menu_handle_function
 from .reply_nuo_coins import nuo_coins_weekly_img_handle_function, add_nuo_coins_weekly_handle_function, \
     delete_nuo_coins_weekly_handle_function, flushed_nuo_coins_weekly_handle_function, \
     nuo_coins_type_img_handle_function
@@ -37,5 +37,7 @@ __all__ = [
     "flushed_nuo_coins_weekly_handle_function",
 
     # 拍拍我
-    "handle_poke_event"
+    "handle_poke_event",
+    # 菜单
+    "help_menu_handle_function"
 ]

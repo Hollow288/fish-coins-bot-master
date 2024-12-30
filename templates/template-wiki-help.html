@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+
+<style>
+    @font-face {
+        font-family: 'AlibabaPuHuiTi-3-45-Light';
+        src: url('{{AlibabaPuHuiTi}}') format('truetype');
+    }
+
+    @font-face {
+        font-family: 'ZCOOL KuaiLe';
+        src: url('{{ZCOOLKuaiLe}}') format('truetype');
+    }
+
+    .card {
+        width: 1920px;
+        height: 1080px;
+        background-image: url('{{ default_background_url }}');
+        background-size: cover;
+        background-position: center;
+        box-sizing: border-box;
+        position: relative; /* 设置 card 为相对定位 */
+    }
+
+    .content {
+        width: 910px;
+        height: 570px;
+        position: absolute;
+        top: 370px;
+        left: 170px;
+        display: flex;
+    }
+
+    .left, .right {
+        width: 50%;
+    }
+
+    .separator {
+        width: 2px;
+        background-color: rgba(204, 204, 204, 0.61);
+        margin: 0 10px;
+    }
+
+    .title {
+        font-size: 30px;
+        font-family: ZCOOL KuaiLe, serif;
+        color: #4F7963;
+        padding-left: 15px;
+        position: relative;
+        margin-top: 20px;
+    }
+
+    .title::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 55%;
+        transform: translateY(-50%);
+        width: 5px;
+        height: 80%;
+        background-color: #4F7963;
+    }
+
+    .directives {
+        font-family: 'AlibabaPuHuiTi-3-45-Light', serif;
+        line-height: 30px;
+        padding-top: 10px;
+    }
+
+    .directives-separator {
+        width: 90%;
+        height: 1px;
+        background-color: #4F7963;
+        margin: 5px 0;
+    }
+
+    .description {
+        font-size: 15px;
+        color: #4F7963;
+        margin-left: auto; /* 使description靠右对齐 */
+    }
+
+</style>
+
+<body>
+<div class="card">
+    <div class="content">
+        <div class="left">
+            <div class="title">武器相关</div>
+            <!--命令名称-->
+            <div class="directives">
+                <div style="display: flex">
+                    <span style="font-size: 20px;"><strong>武器图鉴</strong></span> <span class="description">武器的特质、专属、星级效果</span>
+                </div>
+                <div style="font-size: 17px;">示例: 武器图鉴 菲欧娜 / 武器图鉴 月星钏</div>
+                <div class="directives-separator"></div>
+                <div style="display: flex">
+                    <span style="font-size: 20px;"><strong>武器详情</strong></span> <span class="description">武器的详细普攻、闪避、技能、联携攻击</span>
+                </div>
+                <div style="font-size: 17px;">示例: 武器详情 菲欧娜 / 武器详情 月星钏</div>
+            </div>
+            <div class="title">意志相关</div>
+            <div class="directives">
+                <div style="display: flex">
+                    <span style="font-size: 20px;"><strong>意志图鉴</strong></span> <span
+                        class="description">意志的套装效果</span>
+                </div>
+                <div style="font-size: 17px;">示例: 意志图鉴 菲欧娜 / 意志图鉴 月星钏</div>
+            </div>
+            <div class="title">食物相关</div>
+            <div class="description" style="margin-top: 5px">食物效果、配方 未来加入...</div>
+        </div>
+
+        <div class="separator"></div>
+
+        <div class="right">
+            <div class="title">域币&诺元相关</div>
+            <div class="directives">
+                <div style="display: flex">
+                    <span style="font-size: 20px;"><strong>域币&诺元任务汇总</strong></span> <span class="description">所有的域币&诺元任务汇总</span>
+                </div>
+                <div style="font-size: 16px;">示例: 域币任务汇总 / 诺元任务汇总</div>
+                <div class="directives-separator"></div>
+                <div style="display: flex">
+                    <span style="font-size: 20px;"><strong>本周域币&诺元任务</strong></span> <span class="description">来自用户维护的本周域币&诺元任务汇总</span>
+                </div>
+                <div style="font-size: 16px;">示例: 本周域币任务 / 本周诺元任务</div>
+                <div class="directives-separator"></div>
+                <div style="display: flex">
+                    <span style="font-size: 20px;"><strong>添加域币&诺元任务</strong></span> <span class="description">根据<span
+                        style="color: red">汇总表</span>序号添加本周任务(符号分隔)</span>
+                </div>
+                <div style="font-size: 16px;">示例: 添加域币任务 1.5.7.9 / 添加诺元任务 1.2.7</div>
+                <div class="directives-separator"></div>
+                <div style="display: flex">
+                    <span style="font-size: 20px;"><strong>删除域币&诺元任务</strong></span> <span class="description">根据<span
+                        style="color: red">本周任务表</span>序号删除本周任务</span>
+                </div>
+                <div style="font-size: 16px;">示例: 删除域币任务 1.5.7.9 / 删除诺元任务 1.2.7</div>
+                <div class="directives-separator"></div>
+                <div style="display: flex">
+                    <span style="font-size: 20px;"><strong>刷新域币&诺元任务</strong></span> <span class="description">更新本周域币&诺元任务表</span>
+                </div>
+                <div style="font-size: 16px;">示例: 刷新域币任务 / 刷新诺元任务</div>
+            </div>
+            <div class="directives">
+                <div class="title">直播相关</div>
+                <div style="display: flex">
+                    <span style="font-size: 20px;"><strong>直播推送</strong></span> <span
+                        class="description">塔塔主播开播通知</span>
+                </div>
+                <div style="font-size: 16px;">示例: 无</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

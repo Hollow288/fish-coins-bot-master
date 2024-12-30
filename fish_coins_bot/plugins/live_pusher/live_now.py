@@ -96,7 +96,7 @@ async def live_scheduled():
 
                             await bot.send_group_msg(group_id=record.group_number, message=message_img)
 
-                            await bot.send_group_msg(group_id=record.group_number, message=message_text)
+                            # await bot.send_group_msg(group_id=record.group_number, message=message_text)
 
                         else:
                             logger.error(f"Failed for Host ID {response_room_data["data"]["uid"]}, Status: {response_host_info.status_code}")
