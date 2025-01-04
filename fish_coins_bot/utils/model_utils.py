@@ -81,10 +81,24 @@ def nuo_different_colors(text):
         value = int(text)
 
         # 根据范围返回对应的背景颜色
-        if 1 <= value <= 2:
-            return 'background-color: rgba(253, 193, 0, 0.2);'
-        elif 3 <= value <= 13:
-            return 'background-color: rgba(255, 255, 255, 0.2);'
+        if 1 <= value <= 13:
+            return 'background-color: rgba(253, 193, 0, 0.35);'
+        elif 14 <= value <= 20:
+            return 'background-color: rgba(105, 139, 34, 0.35);'
+        elif 21 <= value <= 24:
+            return 'background-color: rgba(32, 178, 170, 0.35);'
+        elif 25 <= value <= 29:
+            return 'background-color: rgba(85, 96, 143, 0.35);'
+        elif 30 <= value <= 31:
+            return 'background-color: rgba(253, 193, 0, 0.35);'
+        elif 32 <= value <= 35:
+            return 'background-color: rgba(105, 139, 34, 0.35);'
+        elif 36 <= value <= 36:
+            return 'background-color: rgba(32, 178, 170, 0.35);'
+        elif 37 <= value <= 37:
+            return 'background-color: rgba(85, 96, 143, 0.35);'
+        elif 38 <= value <= 39:
+            return 'background-color: rgba(253, 193, 0, 0.35);'
         else:
             return ''  # 如果不在范围内，返回空字符串
     except ValueError:
