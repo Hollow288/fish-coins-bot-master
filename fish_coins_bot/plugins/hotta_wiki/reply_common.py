@@ -63,3 +63,24 @@ async def help_menu_handle_function(args: Message = CommandArg()):
         await help_menu.finish(image_message)
     else:
         await help_menu.finish("哇哦,图片找不到了~")
+
+
+event_consultation = on_command(
+    "活动资讯",
+    rule=Rule(is_group_chat),
+    aliases={"近期活动", "塔塔活动"},
+    priority=10,
+    block=True,
+)
+
+@event_consultation.handle()
+async def event_consultation_handle_function(args: Message = CommandArg()):
+    image_path = Path("/app/screenshots/common") / "event_consultation.png"
+
+    # 检查文件是否存在
+    if image_path.exists():
+        # 发送图片
+        image_message = MessageSegment.image(f"file://{image_path}")
+        await event_consultation.finish(image_message)
+    else:
+        await event_consultation.finish("哇哦,图片找不到了~")

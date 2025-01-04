@@ -1,9 +1,11 @@
 import os
 
+import pytz
 from dotenv import load_dotenv
 import re
 import json
 from pathlib import Path
+from datetime import datetime
 
 # 加载 .env 文件
 load_dotenv()
@@ -190,3 +192,22 @@ def check_willpower_alias(willpower_name:str):
 
     # 如果没有找到对应的别名，返回原始名称
     return willpower_name
+
+# 格式化日期时间，只保留年月日时分
+def format_datetime_with_timezone(dt):
+    tz = pytz.timezone("Asia/Shanghai")
+    dt = dt.astimezone(tz)
+    # 格式化日期时间，只保留年月日时分
+    return dt.strftime("%Y-%m-%d %H:%M")
+
+
+def days_diff_from_now(utc_plus_8_time):
+    tz = pytz.timezone("Asia/Shanghai")
+    current_time = datetime.now(tz)
+
+    time_diff = current_time - utc_plus_8_time
+    # 如果时间差小于一天（24小时），则返回 1，否则返回天数差
+    if abs(time_diff.total_seconds()) < 86400:  # 86400秒 = 1天
+        return 1
+    else:
+        return abs(time_diff.days)

@@ -1,5 +1,6 @@
 from itertools import groupby
 
+import pytz
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 import httpx
 import asyncio
@@ -14,12 +15,13 @@ from fish_coins_bot.database.hotta.arms import Arms, ArmsStarRatings, ArmsCharac
 from jinja2 import Environment, FileSystemLoader
 from datetime import datetime, timedelta
 
+from fish_coins_bot.database.hotta.event_consultation import EventConsultation
 from fish_coins_bot.database.hotta.nuo_coins import NuoCoinsTaskType, NuoCoinsTaskWeeklyDetail
 from fish_coins_bot.database.hotta.willpower import Willpower, WillpowerSuit
 from fish_coins_bot.database.hotta.yu_coins import YuCoinsTaskType, YuCoinsTaskWeeklyDetail
 from fish_coins_bot.utils.model_utils import make_arms_img_url, highlight_numbers, sanitize_filename, \
     make_willpower_img_url, make_yu_coins_img_url, the_font_bold, make_nuo_coins_img_url, \
-    yu_different_colors, nuo_different_colors, make_wiki_help_img_url
+    yu_different_colors, nuo_different_colors, make_wiki_help_img_url, days_diff_from_now, format_datetime_with_timezone
 from fish_coins_bot.utils.nuo_coins_utils import select_or_add_this_weekly_nuo_coins_weekly_id
 from fish_coins_bot.utils.yu_coins_utils import select_or_add_this_weekly_yu_coins_weekly_id
 
@@ -46,7 +48,7 @@ async def make_live_image(live_cover_url: str, live_avatar_url: str, live_name: 
                           live_title: str):
     # live_cover_url = "https://i0.hdslb.com/bfs/live/new_room_cover/90d1125ffdf5a51549404aa88a52ebb624b6b59c.jpg"
     # live_avatar_url = "https://i1.hdslb.com/bfs/face/463cab30630a0230e997625c07aa1213b19905b2.jpg"
-    icon_path = "fish_coins_bot/img/icon.png"
+    icon_path = "fish_coins_bot/img/icon-bili.png"
 
     # 获取背景图片
     background_image = await fetch_image(live_cover_url)
@@ -698,3 +700,205 @@ async def make_wiki_help():
         await browser.close()
 
     logger.success(f"wiki-help.png are created.")
+
+async def make_event_consultation():
+    logger.warning(f"event-consultation.png will be create.")
+
+    screenshot_dir = Path(__file__).parent.parent.parent / "screenshots" / "common"
+    screenshot_dir.mkdir(exist_ok=True)
+
+    tz = pytz.timezone("Asia/Shanghai")
+    current_time = datetime.now(tz)
+
+    are_info_list = await EventConsultation.filter(
+        del_flag="0",
+        consultation_start__lte=current_time,
+        consultation_end__gte=current_time
+    ).order_by("consultation_end").limit(8).values(
+        "consultation_title",
+        "consultation_thumbnail_url",
+        "consultation_start",
+        "consultation_end"
+    )
+
+    will_info_list = await EventConsultation.filter(
+        del_flag="0",
+        consultation_start__gt=current_time
+    ).order_by("consultation_start").limit(4).values(
+        "consultation_title",
+        "consultation_thumbnail_url",
+        "consultation_start",
+        "consultation_end"
+    )
+
+    background_path = "fish_coins_bot/img/event_consultation_background.png"
+    icon_path = "fish_coins_bot/img/icon-clock.png"
+    font_path = "fish_coins_bot/fonts/ZCOOLKuaiLe-Regular.ttf"
+    font_path_title = "fish_coins_bot/fonts/AlibabaPuHuiTi-3-55-Regular.otf"
+
+    background_image = Image.open(background_path)
+    background_image = background_image.resize((1920, 1080))
+
+    draw = ImageDraw.Draw(background_image)
+
+    # 加载字体
+    font_size_large = 50
+    font_size_medium = 40
+    font_size_small = 15
+    font_size_title = 18
+    font_large = ImageFont.truetype(font_path, font_size_large)
+    font_medium = ImageFont.truetype(font_path, font_size_medium)
+    font_small = ImageFont.truetype(font_path, font_size_small)
+    font_title = ImageFont.truetype(font_path_title, font_size_title)
+
+    icon_size = (85, 85)  # 图标大小
+    icon = Image.open(icon_path).resize(icon_size)
+
+    icon_text_spacing = 5
+    text_icon_spacing = 5
+
+    padding = 10
+    title_height = font_size_large + padding - 15
+    subtitle_height = font_size_medium + padding
+    content_height = font_size_small + padding
+    image_size = (350, 200)
+
+    title_text = ""
+    bbox = draw.textbbox((0, 0), title_text, font=font_large)
+    text_width, text_height = bbox[2] - bbox[0], bbox[3] - bbox[1]
+    title_position = ((background_image.width - text_width) // 2, padding)
+    draw.text(title_position, title_text, font=font_large, fill="black")
+
+    subtitle_text = "正在进行中..."
+    bbox = draw.textbbox((0, 0), subtitle_text, font=font_medium)
+    text_width, text_height = bbox[2] - bbox[0], bbox[3] - bbox[1]
+    subtitle_position = (padding, title_height + padding)
+    draw.text(subtitle_position, subtitle_text, font=font_medium, fill="black")
+
+    x_padding = 65
+
+    x_positions = [
+        x_padding,
+        520,
+        980,
+        1440
+    ]
+
+    y_position = subtitle_position[1] + subtitle_height + padding
+    max_rows = (len(are_info_list) + 3) // 4
+
+    for row in range(max_rows):
+        for i in range(4):
+            index = row * 4 + i
+            if index >= len(are_info_list):
+                continue
+
+            event = are_info_list[index]
+
+            title_text = f">>> {event["consultation_title"]}"
+            start_time_text = f"开始时间: {format_datetime_with_timezone(event['consultation_start'])}"
+            end_time_text = f"结束时间: {format_datetime_with_timezone(event['consultation_end'])}"
+
+            draw.text((x_positions[i], y_position), title_text, font=font_title, fill="black")
+            y_position_current = y_position + content_height
+
+            draw.text((x_positions[i], y_position_current + 5), start_time_text, font=font_small, fill="black")
+
+            y_position_current += content_height
+
+            start_time_position = (x_positions[i], y_position_current)
+
+            start_time_bbox = draw.textbbox((0, 0), start_time_text, font=font_small)
+            text_width = start_time_bbox[2] - start_time_bbox[0]
+
+            # 绘制图标
+            icon_position = (
+                start_time_position[0] + text_width + text_icon_spacing + 20,
+                start_time_position[1] - 60
+            )
+            background_image.paste(icon, icon_position, mask=icon)
+
+            # 在图标下方绘制 "X天"
+            icon_text_position = (
+                icon_position[0] + 30,
+                icon_position[1] + icon_size[1] + icon_text_spacing - 20
+            )
+
+            absolute_time = days_diff_from_now(event['consultation_end'])
+            text_color = "red" if absolute_time <= 3 else "black"
+
+            draw.text(icon_text_position, f"{absolute_time}天", font=font_small, fill=text_color)
+
+            draw.text((x_positions[i], y_position_current + 5), end_time_text, font=font_small, fill=text_color)
+            y_position_current += content_height + padding
+
+            image_url = event["consultation_thumbnail_url"]
+            try:
+                activity_image = await fetch_image(image_url)
+                activity_image = activity_image.resize(image_size)
+                background_image.paste(activity_image, (x_positions[i], y_position_current))
+            except Exception as e:
+                print(f"无法加载图片 {image_url}: {e}")
+
+        y_position += max(content_height * 3 + 220, image_size[1]) + padding
+
+    subtitle_text = "未开始..."
+    bbox = draw.textbbox((0, 0), subtitle_text, font=font_medium)
+    text_width, text_height = bbox[2] - bbox[0], bbox[3] - bbox[1]
+    subtitle_position = (padding, y_position)
+    draw.text(subtitle_position, subtitle_text, font=font_medium, fill="black")
+
+    y_position += 50
+
+    for i in range(max_rows):
+        event = will_info_list[i]
+
+        title_text = f">>> {event["consultation_title"]}"
+        start_time_text = f"开始时间: {format_datetime_with_timezone(event['consultation_start'])}"
+        end_time_text = f"结束时间: {format_datetime_with_timezone(event['consultation_end'])}"
+
+        draw.text((x_positions[i], y_position), title_text, font=font_title, fill="black")
+        y_position_current = y_position + content_height
+
+        draw.text((x_positions[i], y_position_current + 5), start_time_text, font=font_small, fill="black")
+        y_position_current += content_height
+
+        #
+        start_time_position = (x_positions[i], y_position_current)
+        start_time_bbox = draw.textbbox((0, 0), start_time_text, font=font_small)
+        text_width = start_time_bbox[2] - start_time_bbox[0]
+
+        # 绘制图标
+        icon_position = (
+            start_time_position[0] + text_width + text_icon_spacing + 20,
+            start_time_position[1] - 60
+        )
+        background_image.paste(icon, icon_position, mask=icon)
+
+        absolute_time = days_diff_from_now(event['consultation_start'])
+
+        # 在图标下方绘制 "X天"
+        icon_text_position = (
+            icon_position[0] + 30,
+            icon_position[1] + icon_size[1] + icon_text_spacing - 20
+        )
+        draw.text(icon_text_position, f"{absolute_time}天", font=font_small, fill="black")
+        #
+        draw.text((x_positions[i], y_position_current + 5), end_time_text, font=font_small, fill="black")
+        y_position_current += content_height + padding
+
+        #
+        image_url = event["consultation_thumbnail_url"]
+        try:
+            activity_image = await fetch_image(image_url)
+            activity_image = activity_image.resize(image_size)
+            background_image.paste(activity_image, (x_positions[i], y_position_current))
+        except Exception as e:
+            print(f"无法加载图片 {image_url}: {e}")
+
+    sanitized_name = 'event-consultation'  # 清理文件名
+    screenshot_path = screenshot_dir / f"{sanitized_name}.png"
+
+    background_image.save(screenshot_path)
+
+    logger.success(f"event-consultation.png are created.")

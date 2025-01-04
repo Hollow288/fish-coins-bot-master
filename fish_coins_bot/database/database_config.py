@@ -27,6 +27,7 @@ TORTOISE_ORM = {
                 "fish_coins_bot.database.hotta.willpower",
                 "fish_coins_bot.database.hotta.yu_coins",
                 "fish_coins_bot.database.hotta.nuo_coins",
+                "fish_coins_bot.database.hotta.event_consultation",
 
             ],
             "default_connection": "default",
