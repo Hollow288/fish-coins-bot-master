@@ -75,7 +75,7 @@ event_consultation = on_command(
 
 @event_consultation.handle()
 async def event_consultation_handle_function(args: Message = CommandArg()):
-    image_path = Path("/app/screenshots/common") / "event_consultation.png"
+    image_path = Path("/app/screenshots/common") / "event-consultation.png"
 
     # 检查文件是否存在
     if image_path.exists():
