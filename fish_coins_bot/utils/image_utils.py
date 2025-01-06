@@ -714,7 +714,7 @@ async def make_event_consultation():
         del_flag="0",
         consultation_start__lte=current_time,
         consultation_end__gte=current_time
-    ).order_by("consultation_end").limit(8).values(
+    ).order_by("consultation_end").limit(12).values(
         "consultation_title",
         "consultation_thumbnail_url",
         "consultation_start",
@@ -785,7 +785,11 @@ async def make_event_consultation():
     ]
 
     y_position = subtitle_position[1] + subtitle_height + padding
-    max_rows = (len(are_info_list) + 3) // 4
+
+    if ((len(are_info_list) + 3) // 4) < 3 or len(will_info_list) == 0:
+        max_rows = (len(are_info_list) + 3) // 4
+    else:
+        max_rows = 2
 
     for row in range(max_rows):
         for i in range(4):
@@ -842,59 +846,63 @@ async def make_event_consultation():
 
         y_position += max(content_height * 3 + 220, image_size[1]) + padding
 
-    subtitle_text = "未开始..."
-    bbox = draw.textbbox((0, 0), subtitle_text, font=font_medium)
-    text_width, text_height = bbox[2] - bbox[0], bbox[3] - bbox[1]
-    subtitle_position = (padding, y_position)
-    draw.text(subtitle_position, subtitle_text, font=font_medium, fill="black")
 
-    y_position += 50
+    if len(will_info_list) > 0 :
 
-    for i in range(max_rows):
-        event = will_info_list[i]
+        subtitle_text = "未开始..."
+        bbox = draw.textbbox((0, 0), subtitle_text, font=font_medium)
+        text_width, text_height = bbox[2] - bbox[0], bbox[3] - bbox[1]
+        subtitle_position = (padding, y_position)
+        draw.text(subtitle_position, subtitle_text, font=font_medium, fill="black")
 
-        title_text = f">>> {event["consultation_title"]}"
-        start_time_text = f"开始时间: {format_datetime_with_timezone(event['consultation_start'])}"
-        end_time_text = f"结束时间: {format_datetime_with_timezone(event['consultation_end'])}"
+        y_position += 50
 
-        draw.text((x_positions[i], y_position), title_text, font=font_title, fill="black")
-        y_position_current = y_position + content_height
+        for i in range(len(will_info_list)):
 
-        draw.text((x_positions[i], y_position_current + 5), start_time_text, font=font_small, fill="black")
-        y_position_current += content_height
+            event = will_info_list[i]
 
-        #
-        start_time_position = (x_positions[i], y_position_current)
-        start_time_bbox = draw.textbbox((0, 0), start_time_text, font=font_small)
-        text_width = start_time_bbox[2] - start_time_bbox[0]
+            title_text = f">>> {event["consultation_title"]}"
+            start_time_text = f"开始时间: {format_datetime_with_timezone(event['consultation_start'])}"
+            end_time_text = f"结束时间: {format_datetime_with_timezone(event['consultation_end'])}"
 
-        # 绘制图标
-        icon_position = (
-            start_time_position[0] + text_width + text_icon_spacing + 20,
-            start_time_position[1] - 60
-        )
-        background_image.paste(icon, icon_position, mask=icon)
+            draw.text((x_positions[i], y_position), title_text, font=font_title, fill="black")
+            y_position_current = y_position + content_height
 
-        absolute_time = days_diff_from_now(event['consultation_start'])
+            draw.text((x_positions[i], y_position_current + 5), start_time_text, font=font_small, fill="black")
+            y_position_current += content_height
 
-        # 在图标下方绘制 "X天"
-        icon_text_position = (
-            icon_position[0] + 30,
-            icon_position[1] + icon_size[1] + icon_text_spacing - 20
-        )
-        draw.text(icon_text_position, f"{absolute_time}天", font=font_small, fill="black")
-        #
-        draw.text((x_positions[i], y_position_current + 5), end_time_text, font=font_small, fill="black")
-        y_position_current += content_height + padding
+            #
+            start_time_position = (x_positions[i], y_position_current)
+            start_time_bbox = draw.textbbox((0, 0), start_time_text, font=font_small)
+            text_width = start_time_bbox[2] - start_time_bbox[0]
 
-        #
-        image_url = event["consultation_thumbnail_url"]
-        try:
-            activity_image = await fetch_image(image_url)
-            activity_image = activity_image.resize(image_size)
-            background_image.paste(activity_image, (x_positions[i], y_position_current))
-        except Exception as e:
-            print(f"无法加载图片 {image_url}: {e}")
+            # 绘制图标
+            icon_position = (
+                start_time_position[0] + text_width + text_icon_spacing + 20,
+                start_time_position[1] - 60
+            )
+            background_image.paste(icon, icon_position, mask=icon)
+
+            absolute_time = days_diff_from_now(event['consultation_start'])
+
+            # 在图标下方绘制 "X天"
+            icon_text_position = (
+                icon_position[0] + 30,
+                icon_position[1] + icon_size[1] + icon_text_spacing - 20
+            )
+            draw.text(icon_text_position, f"{absolute_time}天", font=font_small, fill="black")
+            #
+            draw.text((x_positions[i], y_position_current + 5), end_time_text, font=font_small, fill="black")
+            y_position_current += content_height + padding
+
+            #
+            image_url = event["consultation_thumbnail_url"]
+            try:
+                activity_image = await fetch_image(image_url)
+                activity_image = activity_image.resize(image_size)
+                background_image.paste(activity_image, (x_positions[i], y_position_current))
+            except Exception as e:
+                print(f"无法加载图片 {image_url}: {e}")
 
     sanitized_name = 'event-consultation'  # 清理文件名
     screenshot_path = screenshot_dir / f"{sanitized_name}.png"
