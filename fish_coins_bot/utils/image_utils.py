@@ -735,6 +735,7 @@ async def make_event_consultation():
     icon_path = "fish_coins_bot/img/icon-clock.png"
     font_path = "fish_coins_bot/fonts/ZCOOLKuaiLe-Regular.ttf"
     font_path_title = "fish_coins_bot/fonts/AlibabaPuHuiTi-3-55-Regular.otf"
+    font_big_title = "fish_coins_bot/fonts/日出而作日落想你.ttf"
 
     background_image = Image.open(background_path)
     background_image = background_image.resize((1920, 1080))
@@ -747,7 +748,7 @@ async def make_event_consultation():
     font_size_small = 15
     font_size_title = 18
     font_large = ImageFont.truetype(font_path, font_size_large)
-    font_medium = ImageFont.truetype(font_path, font_size_medium)
+    font_medium = ImageFont.truetype(font_big_title, font_size_medium)
     font_small = ImageFont.truetype(font_path, font_size_small)
     font_title = ImageFont.truetype(font_path_title, font_size_title)
 
