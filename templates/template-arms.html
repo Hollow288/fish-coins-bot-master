@@ -18,6 +18,11 @@
         src: url('{{AlibabaPuHuiTi}}') format('truetype');
     }
 
+    @font-face {
+        font-family: 'TTTGB-Medium';
+        src: url('{{TTTGBMedium}}') format('truetype');
+    }
+
 </style>
 
 
@@ -202,7 +207,7 @@
                     {% for characteristics in star_characteristics %}
                     <div>
                         <div style="font-family: 'AlibabaPuHuiTi-3-55-Regular', serif;">
-                        <span style="font-size: 20px;color: #d86b01"><strong>{{characteristics.items_name}} -</strong></span>
+                        <span style="font-size: 20px;font-family:'TTTGB-Medium',serif;color: #d86b01"><strong>{{characteristics.items_name}} </strong></span>
                             {{characteristics.items_describe | highlight_numbers }}
                         </div>
                     </div>
@@ -221,7 +226,7 @@
                     {% for exclusives in star_exclusives %}
                     <div>
                         <div style="font-family: 'AlibabaPuHuiTi-3-55-Regular', serif;">
-                        <span style="font-size: 20px;color: #d86b01"><strong>{{exclusives.items_name}} -</strong></span>
+                        <span style="font-size: 20px;font-family:'TTTGB-Medium',serif;color: #d86b01"><strong>{{exclusives.items_name}} </strong></span>
                             {{exclusives.items_describe | highlight_numbers }}
                         </div>
                     </div>
@@ -240,7 +245,7 @@
                     {% for ratings in star_ratings %}
                     <div>
                         <div style="font-family: 'AlibabaPuHuiTi-3-55-Regular', serif;">
-                        <span style="font-size: 20px;color: #d86b01"><strong>{{ratings.items_name}} -</strong></span>
+                        <span style="font-size: 20px;font-family:'TTTGB-Medium',serif;color: #d86b01"><strong>{{ratings.items_name}} </strong></span>
                             {{ratings.items_describe | highlight_numbers }}
                         </div>
                     </div>

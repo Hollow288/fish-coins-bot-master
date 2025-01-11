@@ -17,6 +17,11 @@
         src: url('{{AlibabaPuHuiTi}}') format('truetype');
     }
 
+    @font-face {
+        font-family: 'TTTGB-Medium';
+        src: url('{{TTTGBMedium}}') format('truetype');
+    }
+
 
     /* 卡片样式 */
     .card {
@@ -88,7 +93,7 @@
                 <div class="basic-introduce">
                     {% for suit in willpower_suit %}
                     <div>
-                        <div style="font-family:'ZCOOL KuaiLe', serif;font-size: 20px;color: peru">
+                        <div style="font-family:'TTTGB-Medium',serif;font-size: 20px;color: peru">
                             {{suit.items_name}}：
                         </div>
                         <div>

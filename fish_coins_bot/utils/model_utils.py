@@ -142,6 +142,7 @@ def make_arms_img_url(arms: dict):
     arms["arms_charging_energy"] = arms_level(arms["arms_charging_energy"])
     arms["AlibabaPuHuiTi"] = FONT_HOST + "AlibabaPuHuiTi-3-55-Regular.otf"
     arms["ZCOOLKuaiLe"] = FONT_HOST + "ZCOOLKuaiLe-Regular.ttf"
+    arms["TTTGBMedium"] = FONT_HOST + "TTTGB-Medium.ttf"
     arms["background_url"] = BACKGROUND_HOST + "arms/" + f"background-{arms["arms_name"]}.jpeg"
     arms["default_background_url"] = BACKGROUND_HOST + "background-arms.jpeg"
 
@@ -149,6 +150,7 @@ def make_arms_img_url(arms: dict):
 def make_willpower_img_url(willpower: dict):
     willpower["AlibabaPuHuiTi"] = FONT_HOST + "AlibabaPuHuiTi-3-55-Regular.otf"
     willpower["ZCOOLKuaiLe"] = FONT_HOST + "ZCOOLKuaiLe-Regular.ttf"
+    willpower["TTTGBMedium"] = FONT_HOST + "TTTGB-Medium.ttf"
     willpower["background_url"] = BACKGROUND_HOST + "willpower/" + f"background-{willpower["willpower_name"]}.jpeg"
     willpower["default_background_url"] = BACKGROUND_HOST + "background-willpower.jpeg"
 
