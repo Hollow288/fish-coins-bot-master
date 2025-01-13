@@ -149,11 +149,14 @@ delete_nuo_coins_weekly = on_command(
 async def delete_nuo_coins_weekly_handle_function(event: GroupMessageEvent, args: Message = CommandArg()):
     if task_ids := args.extract_plain_text():
 
-        # 需要删除的本周诺元明细ID
+        # 需要删除的本周诺元任务种类ID
         numbers = await extract_nuo_coins_type_id(task_ids)
 
-        for weekly_detail_id in numbers:
-            weekly_detail = await NuoCoinsTaskWeeklyDetail.filter(weekly_detail_id=weekly_detail_id).first()
+        # 需要删除的本周诺元任务主表ID
+        task_weekly_id = await select_or_add_this_weekly_nuo_coins_weekly_id()
+
+        for task_type_id in numbers:
+            weekly_detail = await NuoCoinsTaskWeeklyDetail.filter(task_type_id=task_type_id,task_weekly_id=task_weekly_id).first()
             if not weekly_detail:
                 continue
             else:

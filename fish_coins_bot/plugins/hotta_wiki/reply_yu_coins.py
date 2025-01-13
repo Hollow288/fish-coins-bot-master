@@ -140,11 +140,14 @@ delete_yu_coins_weekly = on_command(
 async def delete_yu_coins_weekly_handle_function(event: GroupMessageEvent, args: Message = CommandArg()):
     if task_ids := args.extract_plain_text():
 
-        # 需要删除的本周域币明细ID
+        # 需要删除的本周域币任务种类ID
         numbers = await extract_yu_coins_type_id(task_ids)
 
-        for weekly_detail_id in numbers:
-            weekly_detail = await YuCoinsTaskWeeklyDetail.filter(weekly_detail_id=weekly_detail_id).first()
+        # 需要删除的本周域币任务主表ID
+        task_weekly_id = await select_or_add_this_weekly_yu_coins_weekly_id()
+
+        for task_type_id in numbers:
+            weekly_detail = await YuCoinsTaskWeeklyDetail.filter(task_type_id=task_type_id,task_weekly_id=task_weekly_id).first()
             if not weekly_detail:
                 continue
             else:
