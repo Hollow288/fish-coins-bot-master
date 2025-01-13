@@ -367,7 +367,7 @@ async def make_yu_coins_weekly_image():
                 "task_type_details": detail.task_type.task_type_details,
                 "task_type_reward": detail.task_type.task_type_reward,
                 "task_weekly_contributors": detail.task_weekly_contributors,  # 加入贡献者信息
-                "task_type_id": detail.task_type_id,  # 改为任务种类ID
+                "task_type_id": detail.task_type.task_type_id,  # 改为任务种类ID
             }
             for detail in weekly_details if detail.task_type  # 确保 task_type 存在
         ],
@@ -508,7 +508,7 @@ async def make_nuo_coins_weekly_image():
                 "task_type_details": detail.task_type.task_type_details,
                 "task_type_reward": detail.task_type.task_type_reward,
                 "task_weekly_contributors": detail.task_weekly_contributors,  # 加入贡献者信息
-                "task_type_id": detail.task_type_id,  # 加入明细ID
+                "task_type_id": detail.task_type.task_type_id,  # 加入明细ID
             }
             for detail in weekly_details if detail.task_type  # 确保 task_type 存在
         ],
