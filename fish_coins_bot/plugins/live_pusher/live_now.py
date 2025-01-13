@@ -59,7 +59,7 @@ async def live_scheduled():
 
                         await bot.send_group_msg(group_id=record.group_number, message=message)
 
-                    elif live_status == '1':
+                    elif live_status == '1' or live_status == '2':
 
                         params_host_info = {"mid": response_room_data["data"]["uid"]}
 

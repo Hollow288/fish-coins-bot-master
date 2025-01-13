@@ -97,6 +97,7 @@ async def make_live_image(live_cover_url: str, live_avatar_url: str, live_name: 
 
     # 加载字体
     font_path = "fish_coins_bot/fonts/ZCOOLKuaiLe-Regular.ttf"
+    main_font_path = "fish_coins_bot/fonts/字帮玩酷体.ttf"
     font_path_kbl = "fish_coins_bot/fonts/日出而作日落想你.ttf"
 
     # 修改文字内容
@@ -107,7 +108,7 @@ async def make_live_image(live_cover_url: str, live_avatar_url: str, live_name: 
 
     # 设置字体大小
     main_font_size = avatar_size[1] * 0.7
-    main_font = ImageFont.truetype(font_path, size=int(main_font_size))
+    main_font = ImageFont.truetype(main_font_path, size=int(main_font_size))
     small_font_size = avatar_size[1] * 0.3
     small_font = ImageFont.truetype(font_path, size=int(small_font_size))
     title_font_size = 30
