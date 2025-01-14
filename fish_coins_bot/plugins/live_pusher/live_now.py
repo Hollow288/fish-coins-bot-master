@@ -47,7 +47,7 @@ async def live_scheduled():
                     if live_status == str(record.live_state) or live_status not in allowed_status:
                         continue
 
-                    if live_status == '0':
+                    if live_status == '0' or live_status == '2':
                         # 下波
                         await BotLiveState.filter(id=record.id).update(live_state=live_status)
 
@@ -59,7 +59,7 @@ async def live_scheduled():
 
                         await bot.send_group_msg(group_id=record.group_number, message=message)
 
-                    elif live_status == '1' or live_status == '2':
+                    elif live_status == '1':
 
                         params_host_info = {"mid": response_room_data["data"]["uid"]}
 
