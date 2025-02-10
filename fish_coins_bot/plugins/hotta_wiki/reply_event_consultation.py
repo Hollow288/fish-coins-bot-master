@@ -11,6 +11,7 @@ from nonebot import get_bot,require
 from datetime import datetime
 
 from fish_coins_bot.database.hotta.event_consultation import EventConsultation
+from fish_coins_bot.utils.image_utils import make_event_consultation_end_image
 from fish_coins_bot.utils.model_utils import days_diff_from_now
 
 require("nonebot_plugin_apscheduler")
@@ -61,18 +62,21 @@ async def event_consultation_end_scheduled():
     )
 
     is_need_send = False
-    result_msg = "以下活动即将结束:\n"
 
     for info in are_info_list:
         if days_diff_from_now(info["consultation_end"]) == 1:
-            result_msg += f" {info["consultation_title"]}\n"
             is_need_send = True
 
-    result_msg += "执行者们注意活动时间哦..."
+    await make_event_consultation_end_image()
 
     bot = get_bot()
     group_list = await bot.get_group_list()
 
-    if is_need_send:
+    image_path = Path("/app/screenshots/common") / "event-consultation-end.png"
+    image_message = MessageSegment.image(f"file://{image_path}")
+
+    # 检查文件是否存在
+    if image_path.exists() and is_need_send:
+        # 发送图片
         for group in group_list:
-            await bot.send_group_msg(group_id=group['group_id'], message=result_msg)
+            await bot.send_group_msg(group_id=group['group_id'], message=image_message)

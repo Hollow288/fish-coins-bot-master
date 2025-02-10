@@ -164,10 +164,16 @@ def make_nuo_coins_img_url(nuo_coins: dict):
     nuo_coins["ZCOOLKuaiLe"] = FONT_HOST + "ZCOOLKuaiLe-Regular.ttf"
     nuo_coins["logo_ht"] = MINIO_HOST + "logo_ht.png"
 
-def make_wiki_help_img_url(nuo_coins: dict):
-    nuo_coins["AlibabaPuHuiTi"] = FONT_HOST + "AlibabaPuHuiTi-3-45-Light.otf"
-    nuo_coins["ZCOOLKuaiLe"] = FONT_HOST + "ZCOOLKuaiLe-Regular.ttf"
-    nuo_coins["default_background_url"] = BACKGROUND_HOST + "background-help.png"
+def make_wiki_help_img_url(wiki_help: dict):
+    wiki_help["AlibabaPuHuiTi"] = FONT_HOST + "AlibabaPuHuiTi-3-45-Light.otf"
+    wiki_help["ZCOOLKuaiLe"] = FONT_HOST + "ZCOOLKuaiLe-Regular.ttf"
+    wiki_help["default_background_url"] = BACKGROUND_HOST + "background-help.png"
+
+def make_event_consultation_end_url(event_consultation: dict):
+    event_consultation["AlibabaPuHuiTi"] = FONT_HOST + "AlibabaPuHuiTi-3-45-Light.otf"
+    event_consultation["ZCOOLKuaiLe"] = FONT_HOST + "ZCOOLKuaiLe-Regular.ttf"
+    event_consultation["logo_ht"] = MINIO_HOST + "logo_ht.png"
+
 
 # 检查武器名称别名
 def check_arms_alias(arms_name:str):
