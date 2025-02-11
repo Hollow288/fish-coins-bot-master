@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Beet with Fiddlehead</title>
+    <style>
+
+        @font-face {
+            font-family: 'ZCOOL KuaiLe';
+            src: url('{{ZCOOLKuaiLe}}') format('truetype');
+        }
+
+        @font-face {
+            font-family: 'AlibabaPuHuiTi-3-35-Thin';
+            src: url('{{AlibabaPuHuiTi}}') format('truetype');
+        }
+
+        body {
+            font-family: 'AlibabaPuHuiTi-3-35-Thin', sans-serif;
+            background-color: #f4f4f9;
+            color: #333;
+        }
+
+        .card {
+            max-width: 490px;
+            padding: 20px 0;
+
+        }
+
+
+        .content {
+            max-width: 450px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            margin: 20px;
+            box-sizing: border-box;
+        }
+
+        .divider {
+            border-bottom: 2px solid rgba(204, 204, 204, 0.61); /* 灰色的分隔线 */
+            width: 90%; /* 设置分隔线宽度为100% */
+            margin: -10px 20px;
+        }
+
+        .title {
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+
+        .img-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+            margin-top: 20px;
+            margin-right: 20px;
+        }
+
+        .img-container img {
+            width: 80px;
+            height: 80px;
+            border-radius: 10px;
+        }
+
+        .description {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: flex-start; /* 改为顶部对齐 */
+
+        }
+
+        .description div:first-child {
+            width: 120px; /* 统一宽度 */
+            font-weight: bold;
+            text-align: left; /* 左对齐 */
+        }
+
+        .description div:last-child {
+            flex: 1; /* 剩余部分填充 */
+        }
+
+
+        .details {
+            justify-content: center;
+            margin-bottom: 15px;
+            display: flex;
+            background-color: #f0f0f0;
+            padding: 10px;
+            border-radius: 5px;
+
+        }
+
+        .effect {
+            margin-bottom: 15px;
+            display: flex;
+            background-color: #e8f7e8;
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        .effect .img-container {
+            position: relative; /* 设置父容器相对定位 */
+            display: inline-block; /* 保证图片和数量在同一行 */
+
+        }
+
+        .effect .item-image {
+            width: 50px;
+            height: 50px;
+            border-radius: 10px;
+        }
+
+        .effect .quantity {
+            position: absolute; /* 绝对定位 */
+            top: -10px; /* 距离图片顶部5px */
+            right: -10px; /* 距离图片右侧5px */
+            background-color: rgba(255, 12, 12, 0.7); /* 背景色，带有透明度 */
+            color: white; /* 数字颜色为白色 */
+            font-size: 12px; /* 字体大小 */
+            width: 15px; /* 设置固定宽度 */
+            height: 15px; /* 设置固定高度 */
+            padding: 2px; /* 确保边距不影响圆形 */
+            text-align: center; /* 让文本居中 */
+            line-height: 14px; /* 行高调整为与数字大小相匹配 */
+            border-radius: 50%; /* 圆形背景 */
+        }
+
+        .effect .ingredient-name {
+            position: absolute; /* 绝对定位 */
+            bottom: -20px; /* 使名称位于图片下方 */
+            left: 50%; /* 水平居中 */
+            transform: translateX(-50%); /* 精确居中对齐 */
+            font-size: 12px; /* 设置字体大小 */
+            color: #333; /* 设置字体颜色 */
+            padding: 2px 5px; /* 内边距 */
+            border-radius: 5px; /* 圆角效果 */
+            width: 80px; /* 设置宽度 */
+            text-align: center; /* 文字居中 */
+        }
+
+
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <div class="content">
+        <div class="title">{{ food_name }}</div>
+        <div class="divider"></div>
+        <div class="img-container">
+            <img src="{{ food_thumbnail_url }}"
+                 alt="Beet with Fiddlehead"/>
+        </div>
+
+
+        <div class="description">
+            <div style="width: 100px; font-weight: bold;">获取途径:</div>
+            <div>{{ food_source }}</div>
+        </div>
+
+        <div class="description">
+            <div style="width: 100px; font-weight: bold;">效果:</div>
+            <div>{{ food_effect | highlight_numbers }}</div>
+        </div>
+
+        {% if food_formulas %}
+            <div class="details">
+                制作方式
+            </div>
+            <div class="effect">
+                {% for item in food_formulas %}
+                    <div class="img-container">
+                        <img src="{{ item.ingredient_food_thumbnail_url }}"
+                             alt="Beet with Fiddlehead" class="item-image"/>
+                         <div class="ingredient-name">{{ item.ingredient_food_name }}</div>
+                        <div class="quantity">{{ item.ingredients_num }}</div>
+
+                    </div>
+                {% endfor %}
+
+            </div>
+        {% endif %}
+
+
+        <div style="font-family: 'ZCOOL KuaiLe', serif; font-size: 15px; text-align: center; color: #8a2020;">
+            Created by FishCoins-Bot & Hollow288 v0.0.1
+        </div>
+    </div>
+
+</div>
+
+
+</body>
+</html>

@@ -28,6 +28,7 @@ TORTOISE_ORM = {
                 "fish_coins_bot.database.hotta.yu_coins",
                 "fish_coins_bot.database.hotta.nuo_coins",
                 "fish_coins_bot.database.hotta.event_consultation",
+                "fish_coins_bot.database.hotta.food",
 
             ],
             "default_connection": "default",

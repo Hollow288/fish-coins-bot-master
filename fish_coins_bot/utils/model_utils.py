@@ -174,6 +174,10 @@ def make_event_consultation_end_url(event_consultation: dict):
     event_consultation["ZCOOLKuaiLe"] = FONT_HOST + "ZCOOLKuaiLe-Regular.ttf"
     event_consultation["logo_ht"] = MINIO_HOST + "logo_ht.png"
 
+def make_food_img_url(food: object):
+    food.AlibabaPuHuiTi = FONT_HOST + "AlibabaPuHuiTi-3-45-Light.otf"
+    food.ZCOOLKuaiLe = FONT_HOST + "ZCOOLKuaiLe-Regular.ttf"
+
 
 # 检查武器名称别名
 def check_arms_alias(arms_name:str):

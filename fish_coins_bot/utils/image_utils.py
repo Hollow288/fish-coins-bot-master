@@ -16,13 +16,14 @@ from jinja2 import Environment, FileSystemLoader
 from datetime import datetime, timedelta
 
 from fish_coins_bot.database.hotta.event_consultation import EventConsultation
+from fish_coins_bot.database.hotta.food import Food
 from fish_coins_bot.database.hotta.nuo_coins import NuoCoinsTaskType, NuoCoinsTaskWeeklyDetail
 from fish_coins_bot.database.hotta.willpower import Willpower, WillpowerSuit
 from fish_coins_bot.database.hotta.yu_coins import YuCoinsTaskType, YuCoinsTaskWeeklyDetail
 from fish_coins_bot.utils.model_utils import make_arms_img_url, highlight_numbers, sanitize_filename, \
     make_willpower_img_url, make_yu_coins_img_url, the_font_bold, make_nuo_coins_img_url, \
     yu_different_colors, nuo_different_colors, make_wiki_help_img_url, days_diff_from_now, \
-    format_datetime_with_timezone, make_event_consultation_end_url
+    format_datetime_with_timezone, make_event_consultation_end_url, make_food_img_url
 from fish_coins_bot.utils.nuo_coins_utils import select_or_add_this_weekly_nuo_coins_weekly_id
 from fish_coins_bot.utils.yu_coins_utils import select_or_add_this_weekly_yu_coins_weekly_id
 
@@ -971,4 +972,66 @@ async def make_event_consultation_end_image():
 
         await browser.close()
 
-    logger.success(f"vent-consultation-end.png are created.")
+    logger.success(f"event-consultation-end.png are created.")
+
+
+async def make_food_image():
+
+    screenshot_dir = Path(__file__).parent.parent.parent  / "screenshots" / "food"
+    screenshot_dir.mkdir(exist_ok=True)
+
+    files = [file.stem for file in screenshot_dir.iterdir() if file.is_file()]
+    logger.warning(f"The following food documents already exist: {files}. Skip")
+    food_list = await Food.filter(del_flag="0").prefetch_related("food_formulas")
+
+    food_list = [food for food in food_list if food.food_name not in files]
+    food_names = [food.food_name for food in food_list]
+
+    logger.warning(f"The following arms-attack documents will be created: {food_names}.")
+
+    # 创建 Jinja2 环境
+    env = Environment(loader=FileSystemLoader('templates'))
+    env.filters['highlight_numbers'] = highlight_numbers  # 注册过滤器
+
+    async with async_playwright() as p:
+        browser = await p.firefox.launch(headless=True)
+
+        food_formulas = []
+        for food in food_list:
+            make_food_img_url(food)
+            for formula in food.food_formulas:
+
+                ingredient_food = await Food.filter(food_id=formula.ingredients_id).first()
+
+                if ingredient_food:
+                    formula_dict = formula.__dict__.copy()  # 转换为字典
+                    formula_dict["ingredient_food_thumbnail_url"] = ingredient_food.food_thumbnail_url
+                    formula_dict["ingredient_food_name"] = ingredient_food.food_name
+                    food_formulas.append(formula_dict)
+
+            # 渲染 HTML
+            template = env.get_template("template-food.html")
+
+            food_data = {key: value for key, value in food.__dict__.items() if value is not None}
+            food_data['food_formulas'] = food_formulas
+            html_content = template.render(**food_data)
+
+            # 创建新的页面
+            page = await browser.new_page()  # 每次处理新数据时创建新标签页
+
+            # 加载 HTML 内容
+            await page.set_content(html_content, timeout=60000)  # 60 秒
+
+            # 截图特定区域 (定位到 .card)
+            locator = page.locator(".card")
+
+            sanitized_name = sanitize_filename(food_data["food_name"])  # 清理文件名
+            screenshot_path = screenshot_dir / f"{sanitized_name}.png"
+            await locator.screenshot(path=str(screenshot_path))
+
+            # 关闭当前页面
+            await page.close()
+
+        await browser.close()
+
+    logger.success(f"All food files are created.")
