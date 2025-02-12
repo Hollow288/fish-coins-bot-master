@@ -25,6 +25,9 @@
         .card {
             max-width: 490px;
             padding: 20px 0;
+            background-image: url('{{ background_url }}');
+            background-size: cover;
+            background-position: center;
 
         }
 
@@ -85,12 +88,14 @@
 
 
         .details {
+            background-image: url('{{ background_foliage }}');
             justify-content: center;
             margin-bottom: 15px;
             display: flex;
             background-color: #f0f0f0;
             padding: 10px;
             border-radius: 5px;
+            font-family: 'ZCOOL KuaiLe', serif;
 
         }
 
@@ -169,7 +174,7 @@
 
         {% if food_formulas %}
             <div class="details">
-                制作方式
+                制 作 方 式
             </div>
             <div class="effect">
                 {% for item in food_formulas %}

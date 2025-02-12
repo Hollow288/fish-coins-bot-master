@@ -177,6 +177,8 @@ def make_event_consultation_end_url(event_consultation: dict):
 def make_food_img_url(food: object):
     food.AlibabaPuHuiTi = FONT_HOST + "AlibabaPuHuiTi-3-45-Light.otf"
     food.ZCOOLKuaiLe = FONT_HOST + "ZCOOLKuaiLe-Regular.ttf"
+    food.background_url = BACKGROUND_HOST + "background-food.webp"
+    food.background_foliage = BACKGROUND_HOST + "background-foliage.jpg"
 
 
 # 检查武器名称别名
