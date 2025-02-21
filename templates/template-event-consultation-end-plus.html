@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>日历</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .calendar-container {
+            width: 532px;
+            background-color: rgba(255, 255, 255, 0.8);
+            position: relative;
+            padding-bottom: 1px;
+            border-radius: 10px;
+            box-shadow: 0 0 18px rgba(0, 0, 0, 0.3);
+        }
+
+        .calendar-header {
+            display: flex ;
+                background-color: rgb(255 255 255 / 0%);
+            position: relative;
+            border-radius: 10px 10px 0 0;
+            overflow: hidden;
+            padding: 10px;
+            font-size: 20px;
+            font-weight: bold;
+            color: #333;
+            justify-content: center;
+        }
+
+        .event-card {
+            height: 55px;
+            background-color: rgba(255, 255, 255, 0.75);
+            position: relative;
+            left: -6px;
+            margin-bottom: 15px;
+            cursor: pointer;
+            display: block;
+            box-shadow: 4px 4px 4px rgba(35, 35, 35, 0.2);
+            border-radius: 6px;
+        }
+
+        .event-background {
+            position: absolute;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            width: 150px;
+            background-position: center right;
+            background-size: 100% 100%; /* 拉伸图片以填充容器 */
+            background-repeat: no-repeat;
+            mask: linear-gradient(to right, transparent 0%, #cac8c8 100%);
+        }
+
+        .event-tag {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 6px;
+
+        }
+
+
+        .event-content {
+            padding-top: 8px;
+            padding-left: 18px;
+            position: relative;
+        }
+
+        .event-info {
+            transform-origin: left top;
+            transform: scale(0.9);
+        }
+
+        .event-title {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-size: 17px;
+            color: #333;
+            width: 100%;
+            display: block;
+        }
+
+        .event-text {
+            color: #666;
+            font-size: 13px;
+            margin-top: 10px;
+        }
+
+.event-end-time {
+            position: absolute;
+            right: 40px;
+            font-size: 12px;
+            color: #e6e6e6;
+            top: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 3px 6px;
+            transform-origin: top right;
+            transform: scale(0.9);
+}
+
+
+        .event-end-time::before {
+            position: absolute;
+            top: 0;
+            left: -15px;
+            content: '';
+            width: 0;
+            height: 0;
+            border-style: solid;
+            border-width: 0 15px 21.6px 0;
+            border-color: transparent rgba(0, 0, 0, 0.5) transparent transparent;
+        }
+
+        .event-end-time::after {
+            position: absolute;
+            top: 0;
+            right: -15px;
+            content: '';
+            width: 0;
+            height: 0;
+            border-style: solid;
+            border-width: 21.6px 15px 0 0;
+            border-color: rgba(0, 0, 0, 0.5) transparent transparent transparent;
+        }
+
+
+
+        .calendar-wrapper {
+            width: 600px;
+            background: linear-gradient(45deg, #e0c3fc, #8ec5fc);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding-bottom: 30px;
+            padding-top: 30px;
+            flex-wrap: wrap;
+        }
+    </style>
+</head>
+
+<body>
+<div class="calendar-wrapper">
+    <div class="calendar-container">
+        <div class="calendar-header">即将结束的活动</div>
+
+        <div class="event-card" style="width: 544px; transform: translate(0px);">
+            <div class="event-background" style="background-image: url('');"></div>
+            <div class="event-tag" style="background-color: #ff6b6b;"></div>
+            <div class="event-content">
+                <div class="event-info">
+                    <span class="event-title">活动标题 1</span>
+                    <div class="event-text">2025-02-25 04:59</div>
+                </div>
+                <div class="event-end-time">剩余 10 天</div>
+            </div>
+        </div>
+
+        <div class="event-card" style="width: 544px; transform: translate(0px);">
+            <div class="event-background" style="background-image: url('./background-foliage.jpg');"></div>
+            <div class="event-tag" style="background-color: #78e167;"></div>
+            <div class="event-content">
+                <div class="event-info">
+                    <span class="event-title">活动标题 2</span>
+                    <div class="event-text">2025-02-28 04:59</div>
+                </div>
+                <div class="event-end-time">剩余 5 天</div>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>

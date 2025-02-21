@@ -64,7 +64,7 @@ async def event_consultation_end_scheduled():
     is_need_send = False
 
     for info in are_info_list:
-        if days_diff_from_now(info["consultation_end"]) == 1:
+        if days_diff_from_now(info["consultation_end"]) <= 7:
             is_need_send = True
 
     await make_event_consultation_end_image()

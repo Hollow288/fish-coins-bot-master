@@ -935,13 +935,14 @@ async def make_event_consultation_end_image():
         "consultation_end"
     )
 
-    are_info_list = list(filter(lambda info: days_diff_from_now(info["consultation_end"]) == 1, are_info_list))
+    are_info_list = list(filter(lambda info: days_diff_from_now(info["consultation_end"]) <= 7, are_info_list))
 
     for item in are_info_list:
         if "consultation_end" in item:
             item["consultation_end"] = str(item["consultation_end"])[:16]
+            item["day_num"] = days_diff_from_now(item["consultation_end"])
 
-    data = {"nuo_coins_task_type_list": are_info_list, "title_name": "以下活动即将结束！"}
+    data = {"nuo_coins_task_type_list": are_info_list, "title_name": "即将结束的活动"}
 
     # 创建 Jinja2 环境
     env = Environment(loader=FileSystemLoader('templates'))
