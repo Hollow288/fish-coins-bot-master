@@ -23,7 +23,7 @@ from fish_coins_bot.database.hotta.yu_coins import YuCoinsTaskType, YuCoinsTaskW
 from fish_coins_bot.utils.model_utils import make_arms_img_url, highlight_numbers, sanitize_filename, \
     make_willpower_img_url, make_yu_coins_img_url, the_font_bold, make_nuo_coins_img_url, \
     yu_different_colors, nuo_different_colors, make_wiki_help_img_url, days_diff_from_now, \
-    format_datetime_with_timezone, make_event_consultation_end_url, make_food_img_url
+    format_datetime_with_timezone, make_event_consultation_end_url, make_food_img_url, tag_different_colors
 from fish_coins_bot.utils.nuo_coins_utils import select_or_add_this_weekly_nuo_coins_weekly_id
 from fish_coins_bot.utils.yu_coins_utils import select_or_add_this_weekly_yu_coins_weekly_id
 
@@ -932,27 +932,30 @@ async def make_event_consultation_end_image():
     ).order_by("consultation_end").values(
         "consultation_title",
         "consultation_start",
-        "consultation_end"
+        "consultation_end",
+        "consultation_thumbnail_url",
+        "consultation_describe"
     )
 
     are_info_list = list(filter(lambda info: days_diff_from_now(info["consultation_end"]) <= 7, are_info_list))
 
     for item in are_info_list:
         if "consultation_end" in item:
-            item["consultation_end"] = str(item["consultation_end"])[:16]
             item["day_num"] = days_diff_from_now(item["consultation_end"])
+            item["consultation_end"] = str(item["consultation_end"])[:16]
 
     data = {"nuo_coins_task_type_list": are_info_list, "title_name": "即将结束的活动"}
 
     # 创建 Jinja2 环境
     env = Environment(loader=FileSystemLoader('templates'))
+    env.filters['tag_different_colors'] = tag_different_colors  # 注册过滤器
 
     async with async_playwright() as p:
         browser = await p.firefox.launch(headless=True)
         make_event_consultation_end_url(data)
 
         # 渲染 HTML
-        template = env.get_template("template-event-consultation-end.html")
+        template = env.get_template("template-event-consultation-end-plus.html")
         html_content = template.render(**data)
 
         # 创建新的页面
@@ -962,7 +965,7 @@ async def make_event_consultation_end_image():
         await page.set_content(html_content, timeout=60000)  # 60 秒
 
         # 截图特定区域 (定位到 .card)
-        locator = page.locator(".card")
+        locator = page.locator(".calendar-wrapper")
 
         sanitized_name = 'event-consultation-end'  # 清理文件名
         screenshot_path = screenshot_dir / f"{sanitized_name}.png"

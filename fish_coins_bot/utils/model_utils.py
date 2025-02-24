@@ -105,6 +105,21 @@ def nuo_different_colors(text):
         # 如果 text 不是有效的数字，返回默认空样式
         return ''
 
+
+def tag_different_colors(text):
+    try:
+        # 根据范围返回对应的背景颜色
+        if text == '活动':
+            return 'background-color: #ff6b6b;'
+        elif text == '卡池':
+            return 'background-color: #78e167;'
+        elif text == '高定':
+            return 'background-color: #589bed;'
+        elif text == '时装':
+            return 'background-color: #cc6b3f;'
+    except ValueError:
+        return ''
+
 def the_font_bold(text):
     # 使用正则表达式匹配括号及其内容，并替换为带 <strong> 标签的格式
     result = re.sub(r'(\(.*?\))', r'<strong>\1</strong>', text)

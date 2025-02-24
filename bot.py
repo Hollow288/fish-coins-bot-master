@@ -5,7 +5,7 @@ from tortoise import Tortoise
 from fish_coins_bot.database import database_config
 from fish_coins_bot.utils.image_utils import make_all_arms_image, make_all_willpower_image, make_yu_coins_type_image, \
     make_yu_coins_weekly_image, make_nuo_coins_type_image, make_nuo_coins_weekly_image, make_all_arms_attack_image, \
-    make_wiki_help, make_event_consultation, make_food_image
+    make_wiki_help, make_event_consultation, make_food_image, make_event_consultation_end_image
 
 # 初始化 NoneBot
 nonebot.init()
@@ -21,9 +21,10 @@ async def do_something():
     await Tortoise.init(
         config=database_config.TORTOISE_ORM
     )
-
     # 帮助
     await make_wiki_help()
+    # 即将结束的活动
+    await make_event_consultation_end_image()
     # 活动资讯
     await make_event_consultation()
     # 初始化开播状态
