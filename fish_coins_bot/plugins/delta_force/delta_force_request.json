@@ -1,0 +1,12 @@
+{
+    "getVersion": {
+        "url": "",
+        "header": {
+        }
+    },
+    "getDoorPin": {
+        "url": "",
+        "header": {
+        }
+    }
+}
