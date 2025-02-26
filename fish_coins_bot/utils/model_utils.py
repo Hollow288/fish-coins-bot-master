@@ -33,6 +33,13 @@ arms_attribute_url = {
     '雷冰': 'icon_element_leibing.webp',
 }
 
+delta_force_map_abbreviation = {
+    "db": "零号大坝",
+    "cgxg": "长弓溪谷",
+    "bks": "巴克什",
+    "htjd": "航天基地"
+}
+
 def arms_level(arms):
 
     # 判断并返回等级
