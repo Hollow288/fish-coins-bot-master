@@ -1001,8 +1001,8 @@ async def make_food_image():
     async with async_playwright() as p:
         browser = await p.firefox.launch(headless=True)
 
-        food_formulas = []
         for food in food_list:
+            food_formulas = []
             make_food_img_url(food)
             for formula in food.food_formulas:
 
