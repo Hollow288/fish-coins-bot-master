@@ -197,6 +197,8 @@
                 </div>
             </div>
         </div>
+
+        {% if star_characteristics %}
         <div class="row" style="display: flex">
             <div class="other-content">
                 <div class="subheading">
@@ -215,7 +217,9 @@
                 </div>
             </div>
         </div>
+        {% endif %}
 
+        {% if star_exclusives %}
         <div class="row" style="display: flex">
             <div class="other-content">
                 <div class="subheading">
@@ -234,7 +238,31 @@
                 </div>
             </div>
         </div>
+        {% endif %}
 
+        {% if arms_synesthesia %}
+        <div class="row" style="display: flex">
+            <div class="other-content">
+                <div class="subheading">
+                    |&nbsp;通感
+                </div>
+                <div class="divider"></div>
+                <div class="other-content-txt">
+                    {% for synesthesia in arms_synesthesia %}
+                    <div>
+                        <div style="font-family: 'AlibabaPuHuiTi-3-55-Regular', serif;">
+                        <span style="font-size: 20px;font-family:'TTTGB-Medium',serif;color: #d86b01"><strong>{{synesthesia.items_name}} </strong></span>
+                            {{synesthesia.items_describe | highlight_numbers }}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+            </div>
+        </div>
+        {% endif %}
+
+        {% if star_ratings %}
         <div class="row" style="display: flex">
             <div class="other-content">
                 <div class="subheading">
@@ -254,6 +282,7 @@
 
             </div>
         </div>
+        {% endif %}
         <div style="font-family: 'ZCOOL KuaiLe', serif;font-size: 20px;text-align: center;color: white;margin-top: 10px">
             Created by FishCoins-Bot & Hollow288 v0.0.1
         </div>

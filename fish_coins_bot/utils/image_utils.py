@@ -11,7 +11,7 @@ from nonebot.log import logger
 from pathlib import Path
 from playwright.async_api import async_playwright
 from fish_coins_bot.database.hotta.arms import Arms, ArmsStarRatings, ArmsCharacteristics, ArmsExclusives, \
-    ArmsPrimaryAttacks, ArmsDodgeAttacks, ArmsCooperationAttacks, ArmsSkillAttacks
+    ArmsPrimaryAttacks, ArmsDodgeAttacks, ArmsCooperationAttacks, ArmsSkillAttacks, ArmsSynesthesia
 from jinja2 import Environment, FileSystemLoader
 from datetime import datetime, timedelta
 
@@ -201,13 +201,17 @@ async def make_all_arms_image():
             # 特质
             star_characteristics = await ArmsCharacteristics.filter(arms_id=arms["arms_id"]).values("items_name",
                                                                                                     "items_describe")
+            # 通感
+            arms_synesthesia = await ArmsSynesthesia.filter(arms_id=arms["arms_id"]).values("items_name",
+                                                                                                    "items_describe")
             # 专属
             star_exclusives = await ArmsExclusives.filter(arms_id=arms["arms_id"]).values("items_name",
                                                                                           "items_describe")
 
-            arms["star_ratings"] = star_ratings
-            arms["star_characteristics"] = star_characteristics
-            arms["star_exclusives"] = star_exclusives
+            arms["star_ratings"] = star_ratings if len(star_ratings) > 0 else None
+            arms["star_characteristics"] = star_characteristics if len(star_characteristics) > 0 else None
+            arms["star_exclusives"] = star_exclusives if len(star_exclusives) > 0 else None
+            arms["arms_synesthesia"] = arms_synesthesia if len(arms_synesthesia) > 0 else None
 
             # 渲染 HTML
             template = env.get_template("template-arms.html")
@@ -217,7 +221,7 @@ async def make_all_arms_image():
             page = await browser.new_page()  # 每次处理新数据时创建新标签页
 
             # 加载 HTML 内容
-            await page.set_content(html_content, timeout=60000)  # 60 秒
+            await page.set_content(html_content, timeout=600000)  # 60 秒
 
             # 截图特定区域 (定位到 .card)
             locator = page.locator(".card")

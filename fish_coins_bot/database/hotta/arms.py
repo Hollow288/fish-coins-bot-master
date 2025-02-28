@@ -198,3 +198,29 @@ class ArmsPrimaryAttacks(Model):
         table = "arms_primary_attacks"  # 表名
         verbose_name = "武器普攻"
         verbose_name_plural = "武器普攻"
+
+
+
+class ArmsSynesthesia(Model):
+    synesthesia_id = fields.IntField(
+        pk=True,  # 设置为主键
+        auto_increment=True,
+        description="通感id"
+    )
+    arms_id = fields.IntField(
+        description="武器id"
+    )
+    items_name = fields.CharField(
+        max_length=200,
+        null=True,
+        description="词条名称"
+    )
+    items_describe = fields.TextField(
+        null=True,
+        description="词条描述"
+    )
+
+    class Meta:
+        table = "arms_synesthesia"  # 表名
+        verbose_name = "武器通感"
+        verbose_name_plural = "武器通感"
