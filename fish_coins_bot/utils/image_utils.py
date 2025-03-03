@@ -1,3 +1,4 @@
+import os
 from itertools import groupby
 import json
 import pytz
@@ -101,7 +102,9 @@ async def make_live_image(live_cover_url: str, live_avatar_url: str, live_name: 
     # 加载字体
     font_path = "fish_coins_bot/fonts/ZCOOLKuaiLe-Regular.ttf"
     main_font_path = "fish_coins_bot/fonts/字帮玩酷体.ttf"
-    font_path_kbl = "fish_coins_bot/fonts/日出而作日落想你.ttf"
+    font_path_kbl = os.getenv("FONT_HOST") + "日出而作日落想你.ttf"
+    response = httpx.get(font_path_kbl)
+
 
     # 修改文字内容
     # live_name = "喵不动了喵"
@@ -117,7 +120,7 @@ async def make_live_image(live_cover_url: str, live_avatar_url: str, live_name: 
     title_font_size = 30
     title_font = ImageFont.truetype(font_path, size=title_font_size)
     icon_text_font_size = 100
-    icon_text_font = ImageFont.truetype(font_path_kbl, size=icon_text_font_size)
+    icon_text_font = ImageFont.truetype(BytesIO(response.content), size=icon_text_font_size)
 
     # 加载图标并调整大小
     icon_image = Image.open(icon_path)
@@ -743,7 +746,9 @@ async def make_event_consultation():
     icon_path = "fish_coins_bot/img/icon-clock.png"
     font_path = "fish_coins_bot/fonts/ZCOOLKuaiLe-Regular.ttf"
     font_path_title = "fish_coins_bot/fonts/AlibabaPuHuiTi-3-55-Regular.otf"
-    font_big_title = "fish_coins_bot/fonts/日出而作日落想你.ttf"
+    # font_big_title = "fish_coins_bot/fonts/日出而作日落想你.ttf"
+    font_path_kbl = os.getenv("FONT_HOST") + "日出而作日落想你.ttf"
+    response = httpx.get(font_path_kbl)
 
     background_image = Image.open(background_path)
     background_image = background_image.resize((1920, 1080))
@@ -756,7 +761,8 @@ async def make_event_consultation():
     font_size_small = 15
     font_size_title = 18
     font_large = ImageFont.truetype(font_path, font_size_large)
-    font_medium = ImageFont.truetype(font_big_title, font_size_medium)
+    # font_medium = ImageFont.truetype(font_big_title, font_size_medium)
+    font_medium = ImageFont.truetype(BytesIO(response.content), size=font_size_medium)
     font_small = ImageFont.truetype(font_path, font_size_small)
     font_title = ImageFont.truetype(font_path_title, font_size_title)
 
