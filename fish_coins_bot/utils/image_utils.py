@@ -50,8 +50,7 @@ async def fetch_image(url: str):
 # 制作开播图
 async def make_live_image(live_cover_url: str, live_avatar_url: str, live_name: str, live_address: str,
                           live_title: str):
-    # live_cover_url = "https://i0.hdslb.com/bfs/live/new_room_cover/90d1125ffdf5a51549404aa88a52ebb624b6b59c.jpg"
-    # live_avatar_url = "https://i1.hdslb.com/bfs/face/463cab30630a0230e997625c07aa1213b19905b2.jpg"
+
     icon_path = "fish_coins_bot/img/icon-bili.png"
 
     # 获取背景图片
@@ -102,14 +101,10 @@ async def make_live_image(live_cover_url: str, live_avatar_url: str, live_name: 
     # 加载字体
     font_path = "fish_coins_bot/fonts/ZCOOLKuaiLe-Regular.ttf"
     main_font_path = "fish_coins_bot/fonts/字帮玩酷体.ttf"
-    font_path_kbl = os.getenv("FONT_HOST") + "日出而作日落想你.ttf"
+    font_path_kbl = os.getenv("FONT_HOST") + "rcez.ttf"
     response = httpx.get(font_path_kbl)
 
 
-    # 修改文字内容
-    # live_name = "喵不动了喵"
-    # live_address = "https://live.bilibili.com/3786110"
-    # live_title = "《！州一下 可扶贫》"
     live_icon_text = "开播啦!"
 
     # 设置字体大小
@@ -746,8 +741,7 @@ async def make_event_consultation():
     icon_path = "fish_coins_bot/img/icon-clock.png"
     font_path = "fish_coins_bot/fonts/ZCOOLKuaiLe-Regular.ttf"
     font_path_title = "fish_coins_bot/fonts/AlibabaPuHuiTi-3-55-Regular.otf"
-    # font_big_title = "fish_coins_bot/fonts/日出而作日落想你.ttf"
-    font_path_kbl = os.getenv("FONT_HOST") + "日出而作日落想你.ttf"
+    font_path_kbl = os.getenv("FONT_HOST") + "rcez.ttf"
     response = httpx.get(font_path_kbl)
 
     background_image = Image.open(background_path)
