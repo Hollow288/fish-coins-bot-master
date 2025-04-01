@@ -1089,6 +1089,13 @@ async def make_delta_force_room():
 
             # 创建图片
             image = Image.new('RGB', (base_width, image_height), color=(245, 245, 245))
+
+            background_path = "fish_coins_bot/img/password_background.png"
+            background_image = Image.open(background_path)
+            background_image = background_image.resize((base_width, image_height))  # 调整尺寸匹配新图片
+
+            image.paste(background_image, (0, 0))
+
             draw = ImageDraw.Draw(image)
 
             # 加载自定义字体
@@ -1103,27 +1110,27 @@ async def make_delta_force_room():
                 font_text = ImageFont.load_default()
 
             # 绘制标题
-            title_text = "鼠鼠行动密码房"
+            title_text = ""
             title_bbox = draw.textbbox((0, 0), title_text, font=font_title)  # 获取文本边界
             text_width = title_bbox[2] - title_bbox[0]
             draw.text(((base_width - text_width) / 2, padding), title_text, fill=(0, 0, 0), font=font_title)
 
             # 画分割线
             line_y = padding + title_height - 10
-            draw.line([(padding, line_y), (base_width - padding, line_y)], fill=(0, 0, 0), width=3)
+            # draw.line([(padding, line_y), (base_width - padding, line_y)], fill=(0, 0, 0), width=3)
 
             # 表头
-            y_position = line_y + 20  # 表头起始位置
+            y_position = line_y + 30  # 表头起始位置
             col_map = 50  # 地图列起点
             col_pass = 250  # 密码列起点
-            col_date = 400  # 日期列起点
+            col_date = 450  # 日期列起点
             draw.text((col_map, y_position), "地图", fill=(0, 0, 0), font=font_header)
             draw.text((col_pass, y_position), "密码", fill=(0, 0, 0), font=font_header)
             draw.text((col_date, y_position), "日期", fill=(0, 0, 0), font=font_header)
 
             # 画分割线
             y_position += header_height - 10
-            draw.line([(padding, y_position), (base_width - padding, y_position)], fill=(0, 0, 0), width=2)
+            # draw.line([(padding, y_position), (base_width - padding, y_position)], fill=(0, 0, 0), width=2)
 
             # 绘制房间信息
             y_position += 20  # 数据起始行
@@ -1135,7 +1142,7 @@ async def make_delta_force_room():
 
                 draw.text((col_map, y_position), map_name, fill=(50, 50, 50), font=font_text)
                 draw.text((col_pass, y_position), password, fill=(50, 50, 50), font=font_text)
-                draw.text((col_date, y_position), updated, fill=(50, 50, 50), font=font_text)
+                draw.text((col_date - 20, y_position), updated, fill=(50, 50, 50), font=font_text)
 
                 y_position += row_height  # 调整行距
 
