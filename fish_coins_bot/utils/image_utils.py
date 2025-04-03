@@ -6,7 +6,6 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 import httpx
 import asyncio
 from io import BytesIO
-import requests
 
 from nonebot.internal.matcher import Matcher
 from nonebot.log import logger
@@ -1252,7 +1251,7 @@ async def make_delta_force_produce():
             y_position = line_y + 30  # 表头起始位置
             col_place = 50
             col_item = 200
-            col_profit = 500
+            col_profit = 520
             draw.text((col_place, y_position), "地点", fill=(0, 0, 0), font=font_header)
             draw.text((col_item, y_position), "制作物", fill=(0, 0, 0), font=font_header)
             draw.text((col_profit, y_position), "收益", fill=(0, 0, 0), font=font_header)
@@ -1271,7 +1270,7 @@ async def make_delta_force_produce():
                 profit = str(data['profit']).split('.')[0]
 
                 # 下载图片
-                response = requests.get(pic)
+                response = httpx.get(pic)
                 if response.status_code == 200:
                     item_image = Image.open(BytesIO(response.content)).convert("RGBA")  # 确保是 RGBA 格式
                     item_image = item_image.resize((30, 30))  # 调整大小
@@ -1308,7 +1307,7 @@ async def make_delta_force_produce():
                     # 绘制文本
                 draw.text((col_place, y_position), place_name, fill=(50, 50, 50), font=font_text)
                 draw.text((col_item + 40, y_position), item_name, fill=(50, 50, 50), font=font_text)
-                draw.text((col_profit, y_position), profit, fill=(50, 50, 50), font=font_text)
+                draw.text((col_profit , y_position), profit, fill=(50, 50, 50), font=font_text)
 
                 y_position += row_height
 
