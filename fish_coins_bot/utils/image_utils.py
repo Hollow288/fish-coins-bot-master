@@ -1085,7 +1085,7 @@ async def make_delta_force_room():
             title_height = 80  # 标题的高度
             header_height = 50  # 表头的高度
             padding = 20  # 边距
-            image_height = title_height + header_height + len(room_data) * row_height + padding * 2
+            image_height = title_height + header_height + len(room_data) * row_height + padding * 2 + 40
 
             # 创建图片
             image = Image.new('RGB', (base_width, image_height), color=(245, 245, 245))
@@ -1120,7 +1120,7 @@ async def make_delta_force_room():
             # draw.line([(padding, line_y), (base_width - padding, line_y)], fill=(0, 0, 0), width=3)
 
             # 表头
-            y_position = line_y + 30  # 表头起始位置
+            y_position = line_y + 40  # 表头起始位置
             col_map = 50  # 地图列起点
             col_pass = 250  # 密码列起点
             col_date = 450  # 日期列起点
@@ -1213,7 +1213,7 @@ async def make_delta_force_produce():
             title_height = 80  # 标题的高度
             header_height = 50  # 表头的高度
             padding = 20  # 边距
-            image_height = title_height + header_height + len(room_data) * row_height + padding * 2
+            image_height = title_height + header_height + len(room_data) * row_height + padding * 2 + 40
 
             # 创建图片
             image = Image.new('RGB', (base_width, image_height), color=(245, 245, 245))
@@ -1248,7 +1248,7 @@ async def make_delta_force_produce():
             # draw.line([(padding, line_y), (base_width - padding, line_y)], fill=(0, 0, 0), width=3)
 
             # 表头
-            y_position = line_y + 30  # 表头起始位置
+            y_position = line_y + 40  # 表头起始位置
             col_place = 50
             col_item = 200
             col_profit = 520
