@@ -1337,7 +1337,7 @@ async def make_delta_force_produce():
 
 async def screenshot_first_dyn_by_keyword(url: str, keyword: str, fallback_index: int | None = None) -> Image.Image | None:
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=False)
+        browser = await p.chromium.launch(headless=True)
         context = await browser.new_context()
         page = await context.new_page()
 
