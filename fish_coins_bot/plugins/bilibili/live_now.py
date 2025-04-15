@@ -1,4 +1,4 @@
-from fish_coins_bot.database.live.models import BotLiveState
+from fish_coins_bot.database.bilibili.live.models import BotLiveState
 import httpx
 import time
 from nonebot.log import logger

@@ -6,6 +6,7 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 import httpx
 import asyncio
 from io import BytesIO
+import io
 
 from nonebot.internal.matcher import Matcher
 from nonebot.log import logger
@@ -25,7 +26,7 @@ from fish_coins_bot.utils.model_utils import make_arms_img_url, highlight_number
     make_willpower_img_url, make_yu_coins_img_url, the_font_bold, make_nuo_coins_img_url, \
     yu_different_colors, nuo_different_colors, make_wiki_help_img_url, days_diff_from_now, \
     format_datetime_with_timezone, make_event_consultation_end_url, make_food_img_url, tag_different_colors, \
-    delta_force_map_abbreviation
+    delta_force_map_abbreviation, clean_keyword
 from fish_coins_bot.utils.nuo_coins_utils import select_or_add_this_weekly_nuo_coins_weekly_id
 from fish_coins_bot.utils.yu_coins_utils import select_or_add_this_weekly_yu_coins_weekly_id
 
@@ -236,61 +237,64 @@ async def make_all_arms_image():
     logger.success(f"All arms files are created.")
 
 
-async def make_yu_coins_type_image():
+async def make_yu_coins_type_image(frequency:str = None):
     logger.warning(f"yu-coins-task-type.png will be create.")
 
     screenshot_dir = Path(__file__).parent.parent.parent / "screenshots" / "yu-coins"
     screenshot_dir.mkdir(exist_ok=True)
 
-    yu_coins_task_type_list = await YuCoinsTaskType.filter(del_flag="0").order_by("task_type_id").values("task_type_id",
-                                                                                                         "task_type_region",
-                                                                                                         "task_type_npc",
-                                                                                                         "task_type_position",
-                                                                                                         "task_type_details",
-                                                                                                         "task_type_reward")
-    processed_list = []
-    for region, group in groupby(yu_coins_task_type_list, key=lambda x: x["task_type_region"]):
-        group = list(group)  # 转成列表以便多次操作
-        rowspan = len(group)  # 当前组的行数
-        for idx, item in enumerate(group):
-            if idx == 0:
-                item["rowspan"] = rowspan  # 第一项标记 rowspan
-            else:
-                item["task_type_region"] = None  # 其余项置空
-            processed_list.append(item)
+    sanitized_name = 'yu-coins-task-type'  # 清理文件名
+    screenshot_path = screenshot_dir / f"{sanitized_name}.png"
 
-    data = {"yu_coins_task_type_list": yu_coins_task_type_list, "title_name": "每周域币任务汇总", "title_date": None}
+    if not screenshot_path.exists() or frequency is None:
 
-    # 创建 Jinja2 环境
-    env = Environment(loader=FileSystemLoader('templates'))
-    env.filters['different_colors'] = yu_different_colors  # 注册过滤器
-    env.filters['the_font_bold'] = the_font_bold  # 注册过滤器
+        yu_coins_task_type_list = await YuCoinsTaskType.filter(del_flag="0").order_by("task_type_id").values("task_type_id",
+                                                                                                             "task_type_region",
+                                                                                                             "task_type_npc",
+                                                                                                             "task_type_position",
+                                                                                                             "task_type_details",
+                                                                                                             "task_type_reward")
+        processed_list = []
+        for region, group in groupby(yu_coins_task_type_list, key=lambda x: x["task_type_region"]):
+            group = list(group)  # 转成列表以便多次操作
+            rowspan = len(group)  # 当前组的行数
+            for idx, item in enumerate(group):
+                if idx == 0:
+                    item["rowspan"] = rowspan  # 第一项标记 rowspan
+                else:
+                    item["task_type_region"] = None  # 其余项置空
+                processed_list.append(item)
 
-    async with async_playwright() as p:
-        browser = await p.firefox.launch(headless=True)
-        make_yu_coins_img_url(data)
+        data = {"yu_coins_task_type_list": yu_coins_task_type_list, "title_name": "每周域币任务汇总", "title_date": None}
 
-        # 渲染 HTML
-        template = env.get_template("template-yu-coins-type.html")
-        html_content = template.render(**data)
+        # 创建 Jinja2 环境
+        env = Environment(loader=FileSystemLoader('templates'))
+        env.filters['different_colors'] = yu_different_colors  # 注册过滤器
+        env.filters['the_font_bold'] = the_font_bold  # 注册过滤器
 
-        # 创建新的页面
-        page = await browser.new_page()  # 每次处理新数据时创建新标签页
+        async with async_playwright() as p:
+            browser = await p.firefox.launch(headless=True)
+            make_yu_coins_img_url(data)
 
-        # 加载 HTML 内容
-        await page.set_content(html_content, timeout=60000)  # 60 秒
+            # 渲染 HTML
+            template = env.get_template("template-yu-coins-type.html")
+            html_content = template.render(**data)
 
-        # 截图特定区域 (定位到 .card)
-        locator = page.locator(".card")
+            # 创建新的页面
+            page = await browser.new_page()  # 每次处理新数据时创建新标签页
 
-        sanitized_name = 'yu-coins-task-type'  # 清理文件名
-        screenshot_path = screenshot_dir / f"{sanitized_name}.png"
-        await locator.screenshot(path=str(screenshot_path))
+            # 加载 HTML 内容
+            await page.set_content(html_content, timeout=60000)  # 60 秒
 
-        # 关闭当前页面
-        await page.close()
+            # 截图特定区域 (定位到 .card)
+            locator = page.locator(".card")
 
-        await browser.close()
+            await locator.screenshot(path=str(screenshot_path))
+
+            # 关闭当前页面
+            await page.close()
+
+            await browser.close()
 
     logger.success(f"yu-coins-task-type.png are created.")
 
@@ -351,228 +355,237 @@ async def make_all_willpower_image():
     logger.success(f"All willpower files are created.")
 
 
-async def make_yu_coins_weekly_image():
+async def make_yu_coins_weekly_image(frequency:str = None):
     logger.warning(f"yu-coins-task-weekly.png will be create.")
 
     screenshot_dir = Path(__file__).parent.parent.parent / "screenshots" / "yu-coins"
     screenshot_dir.mkdir(exist_ok=True)
 
-    task_weekly_id = await select_or_add_this_weekly_yu_coins_weekly_id()
+    sanitized_name = 'yu-coins-task-weekly'  # 清理文件名
+    screenshot_path = screenshot_dir / f"{sanitized_name}.png"
 
-    weekly_details = await YuCoinsTaskWeeklyDetail.filter(del_flag="0", task_weekly_id=task_weekly_id).select_related(
-        "task_type")
+    if not screenshot_path.exists() or frequency is None:
 
-    # 收集 task_type 数据，并添加 task_weekly_contributors
-    task_type_list = sorted(
-        [
-            {
-                "task_type_region": detail.task_type.task_type_region,
-                "task_type_npc": detail.task_type.task_type_npc,
-                "task_type_position": detail.task_type.task_type_position,
-                "task_type_details": detail.task_type.task_type_details,
-                "task_type_reward": detail.task_type.task_type_reward,
-                "task_weekly_contributors": detail.task_weekly_contributors,  # 加入贡献者信息
-                "task_type_id": detail.task_type.task_type_id,  # 改为任务种类ID
-            }
-            for detail in weekly_details if detail.task_type  # 确保 task_type 存在
-        ],
-        key=lambda x: x["task_type_id"],  # 按 task_type_region 排序
-    )
+        task_weekly_id = await select_or_add_this_weekly_yu_coins_weekly_id()
 
-    today = datetime.now()
+        weekly_details = await YuCoinsTaskWeeklyDetail.filter(del_flag="0", task_weekly_id=task_weekly_id).select_related(
+            "task_type")
 
-    # 计算本周的开始日期（周一）和结束日期（周日）
-    start_of_week = today - timedelta(days=today.weekday())  # 本周一
-    end_of_week = start_of_week + timedelta(days=6)  # 本周日
+        # 收集 task_type 数据，并添加 task_weekly_contributors
+        task_type_list = sorted(
+            [
+                {
+                    "task_type_region": detail.task_type.task_type_region,
+                    "task_type_npc": detail.task_type.task_type_npc,
+                    "task_type_position": detail.task_type.task_type_position,
+                    "task_type_details": detail.task_type.task_type_details,
+                    "task_type_reward": detail.task_type.task_type_reward,
+                    "task_weekly_contributors": detail.task_weekly_contributors,  # 加入贡献者信息
+                    "task_type_id": detail.task_type.task_type_id,  # 改为任务种类ID
+                }
+                for detail in weekly_details if detail.task_type  # 确保 task_type 存在
+            ],
+            key=lambda x: x["task_type_id"],  # 按 task_type_region 排序
+        )
 
-    # 去掉时间部分，仅保留日期
-    start_of_week = start_of_week.date()  # 转为日期类型
-    end_of_week = end_of_week.date()  # 转为日期类型
+        today = datetime.now()
 
-    processed_list = []
-    for region, group in groupby(task_type_list, key=lambda x: x["task_type_region"]):
-        group = list(group)  # 转成列表以便多次操作
-        rowspan = len(group)  # 当前组的行数
-        for idx, item in enumerate(group):
-            if idx == 0:
-                item["rowspan"] = rowspan  # 第一项标记 rowspan
-            else:
-                item["task_type_region"] = None  # 其余项置空
-            processed_list.append(item)
+        # 计算本周的开始日期（周一）和结束日期（周日）
+        start_of_week = today - timedelta(days=today.weekday())  # 本周一
+        end_of_week = start_of_week + timedelta(days=6)  # 本周日
 
-    data = {"task_type_list": task_type_list, "title_name": "本周域币任务", "start_of_week": start_of_week,
-            "end_of_week": end_of_week}
-    # 创建 Jinja2 环境
-    env = Environment(loader=FileSystemLoader('templates'))
-    env.filters['the_font_bold'] = the_font_bold  # 注册过滤器
+        # 去掉时间部分，仅保留日期
+        start_of_week = start_of_week.date()  # 转为日期类型
+        end_of_week = end_of_week.date()  # 转为日期类型
 
-    async with async_playwright() as p:
-        browser = await p.firefox.launch(headless=True)
+        processed_list = []
+        for region, group in groupby(task_type_list, key=lambda x: x["task_type_region"]):
+            group = list(group)  # 转成列表以便多次操作
+            rowspan = len(group)  # 当前组的行数
+            for idx, item in enumerate(group):
+                if idx == 0:
+                    item["rowspan"] = rowspan  # 第一项标记 rowspan
+                else:
+                    item["task_type_region"] = None  # 其余项置空
+                processed_list.append(item)
 
-        make_yu_coins_img_url(data)
+        data = {"task_type_list": task_type_list, "title_name": "本周域币任务", "start_of_week": start_of_week,
+                "end_of_week": end_of_week}
+        # 创建 Jinja2 环境
+        env = Environment(loader=FileSystemLoader('templates'))
+        env.filters['the_font_bold'] = the_font_bold  # 注册过滤器
 
-        # 渲染 HTML
-        template = env.get_template("template-yu-coins-weekly.html")
-        html_content = template.render(**data)
+        async with async_playwright() as p:
+            browser = await p.firefox.launch(headless=True)
 
-        # 创建新的页面
-        page = await browser.new_page()  # 每次处理新数据时创建新标签页
+            make_yu_coins_img_url(data)
 
-        # 加载 HTML 内容
-        await page.set_content(html_content, timeout=60000)  # 60 秒
+            # 渲染 HTML
+            template = env.get_template("template-yu-coins-weekly.html")
+            html_content = template.render(**data)
 
-        # 截图特定区域 (定位到 .card)
-        locator = page.locator(".card")
+            # 创建新的页面
+            page = await browser.new_page()  # 每次处理新数据时创建新标签页
 
-        sanitized_name = 'yu-coins-task-weekly'  # 清理文件名
-        screenshot_path = screenshot_dir / f"{sanitized_name}.png"
-        await locator.screenshot(path=str(screenshot_path))
+            # 加载 HTML 内容
+            await page.set_content(html_content, timeout=60000)  # 60 秒
 
-        # 关闭当前页面
-        await page.close()
+            # 截图特定区域 (定位到 .card)
+            locator = page.locator(".card")
 
-        await browser.close()
+            await locator.screenshot(path=str(screenshot_path))
+
+            # 关闭当前页面
+            await page.close()
+
+            await browser.close()
 
     logger.success(f"yu-coins-task-weekly.png are created.")
 
 
-async def make_nuo_coins_type_image():
+async def make_nuo_coins_type_image(frequency:str = None):
     logger.warning(f"nuo-coins-task-type.png will be create.")
 
     screenshot_dir = Path(__file__).parent.parent.parent / "screenshots" / "nuo-coins"
     screenshot_dir.mkdir(exist_ok=True)
 
-    nuo_coins_task_type_list = await NuoCoinsTaskType.filter(del_flag="0").order_by("task_type_id").values(
-        "task_type_id", "task_type_region", "task_type_npc", "task_type_position", "task_type_details",
-        "task_type_reward")
-    processed_list = []
-    for region, group in groupby(nuo_coins_task_type_list, key=lambda x: x["task_type_region"]):
-        group = list(group)  # 转成列表以便多次操作
-        rowspan = len(group)  # 当前组的行数
-        for idx, item in enumerate(group):
-            if idx == 0:
-                item["rowspan"] = rowspan  # 第一项标记 rowspan
-            else:
-                item["task_type_region"] = None  # 其余项置空
-            processed_list.append(item)
+    sanitized_name = 'yu-coins-task-weekly'  # 清理文件名
+    screenshot_path = screenshot_dir / f"{sanitized_name}.png"
 
-    data = {"nuo_coins_task_type_list": nuo_coins_task_type_list, "title_name": "每周诺元任务汇总", "title_date": None}
+    if not screenshot_path.exists() or frequency is None:
 
-    # 创建 Jinja2 环境
-    env = Environment(loader=FileSystemLoader('templates'))
-    env.filters['different_colors'] = nuo_different_colors  # 注册过滤器
-    env.filters['the_font_bold'] = the_font_bold  # 注册过滤器
+        nuo_coins_task_type_list = await NuoCoinsTaskType.filter(del_flag="0").order_by("task_type_id").values(
+            "task_type_id", "task_type_region", "task_type_npc", "task_type_position", "task_type_details",
+            "task_type_reward")
+        processed_list = []
+        for region, group in groupby(nuo_coins_task_type_list, key=lambda x: x["task_type_region"]):
+            group = list(group)  # 转成列表以便多次操作
+            rowspan = len(group)  # 当前组的行数
+            for idx, item in enumerate(group):
+                if idx == 0:
+                    item["rowspan"] = rowspan  # 第一项标记 rowspan
+                else:
+                    item["task_type_region"] = None  # 其余项置空
+                processed_list.append(item)
 
-    async with async_playwright() as p:
-        browser = await p.firefox.launch(headless=True)
-        make_nuo_coins_img_url(data)
+        data = {"nuo_coins_task_type_list": nuo_coins_task_type_list, "title_name": "每周诺元任务汇总", "title_date": None}
 
-        # 渲染 HTML
-        template = env.get_template("template-nuo-coins-type.html")
-        html_content = template.render(**data)
+        # 创建 Jinja2 环境
+        env = Environment(loader=FileSystemLoader('templates'))
+        env.filters['different_colors'] = nuo_different_colors  # 注册过滤器
+        env.filters['the_font_bold'] = the_font_bold  # 注册过滤器
 
-        # 创建新的页面
-        page = await browser.new_page()  # 每次处理新数据时创建新标签页
+        async with async_playwright() as p:
+            browser = await p.firefox.launch(headless=True)
+            make_nuo_coins_img_url(data)
 
-        # 加载 HTML 内容
-        await page.set_content(html_content, timeout=60000)  # 60 秒
+            # 渲染 HTML
+            template = env.get_template("template-nuo-coins-type.html")
+            html_content = template.render(**data)
 
-        # 截图特定区域 (定位到 .card)
-        locator = page.locator(".card")
+            # 创建新的页面
+            page = await browser.new_page()  # 每次处理新数据时创建新标签页
 
-        sanitized_name = 'nuo-coins-task-type'  # 清理文件名
-        screenshot_path = screenshot_dir / f"{sanitized_name}.png"
-        await locator.screenshot(path=str(screenshot_path))
+            # 加载 HTML 内容
+            await page.set_content(html_content, timeout=60000)  # 60 秒
 
-        # 关闭当前页面
-        await page.close()
+            # 截图特定区域 (定位到 .card)
+            locator = page.locator(".card")
 
-        await browser.close()
+            await locator.screenshot(path=str(screenshot_path))
+
+            # 关闭当前页面
+            await page.close()
+
+            await browser.close()
 
     logger.success(f"nuo-coins-task-type.png are created.")
 
 
-async def make_nuo_coins_weekly_image():
+async def make_nuo_coins_weekly_image(frequency:str = None):
     logger.warning(f"nuo-coins-task-weekly.png will be create.")
 
     screenshot_dir = Path(__file__).parent.parent.parent / "screenshots" / "nuo-coins"
     screenshot_dir.mkdir(exist_ok=True)
 
-    task_weekly_id = await select_or_add_this_weekly_nuo_coins_weekly_id()
+    sanitized_name = 'nuo-coins-task-weekly'  # 清理文件名
+    screenshot_path = screenshot_dir / f"{sanitized_name}.png"
 
-    weekly_details = await NuoCoinsTaskWeeklyDetail.filter(del_flag="0", task_weekly_id=task_weekly_id).select_related(
-        "task_type")
+    if not screenshot_path.exists() or frequency is None:
 
-    # 收集 task_type 数据，并添加 task_weekly_contributors
-    task_type_list = sorted(
-        [
-            {
-                "task_type_region": detail.task_type.task_type_region,
-                "task_type_npc": detail.task_type.task_type_npc,
-                "task_type_position": detail.task_type.task_type_position,
-                "task_type_details": detail.task_type.task_type_details,
-                "task_type_reward": detail.task_type.task_type_reward,
-                "task_weekly_contributors": detail.task_weekly_contributors,  # 加入贡献者信息
-                "task_type_id": detail.task_type.task_type_id,  # 加入明细ID
-            }
-            for detail in weekly_details if detail.task_type  # 确保 task_type 存在
-        ],
-        key=lambda x: x["task_type_id"],  # 按 task_type_region 排序
-    )
+        task_weekly_id = await select_or_add_this_weekly_nuo_coins_weekly_id()
 
-    today = datetime.now()
+        weekly_details = await NuoCoinsTaskWeeklyDetail.filter(del_flag="0", task_weekly_id=task_weekly_id).select_related(
+            "task_type")
 
-    # 计算本周的开始日期（周一）和结束日期（周日）
-    start_of_week = today - timedelta(days=today.weekday())  # 本周一
-    end_of_week = start_of_week + timedelta(days=6)  # 本周日
+        # 收集 task_type 数据，并添加 task_weekly_contributors
+        task_type_list = sorted(
+            [
+                {
+                    "task_type_region": detail.task_type.task_type_region,
+                    "task_type_npc": detail.task_type.task_type_npc,
+                    "task_type_position": detail.task_type.task_type_position,
+                    "task_type_details": detail.task_type.task_type_details,
+                    "task_type_reward": detail.task_type.task_type_reward,
+                    "task_weekly_contributors": detail.task_weekly_contributors,  # 加入贡献者信息
+                    "task_type_id": detail.task_type.task_type_id,  # 加入明细ID
+                }
+                for detail in weekly_details if detail.task_type  # 确保 task_type 存在
+            ],
+            key=lambda x: x["task_type_id"],  # 按 task_type_region 排序
+        )
 
-    # 去掉时间部分，仅保留日期
-    start_of_week = start_of_week.date()  # 转为日期类型
-    end_of_week = end_of_week.date()  # 转为日期类型
+        today = datetime.now()
 
-    processed_list = []
-    for region, group in groupby(task_type_list, key=lambda x: x["task_type_region"]):
-        group = list(group)  # 转成列表以便多次操作
-        rowspan = len(group)  # 当前组的行数
-        for idx, item in enumerate(group):
-            if idx == 0:
-                item["rowspan"] = rowspan  # 第一项标记 rowspan
-            else:
-                item["task_type_region"] = None  # 其余项置空
-            processed_list.append(item)
+        # 计算本周的开始日期（周一）和结束日期（周日）
+        start_of_week = today - timedelta(days=today.weekday())  # 本周一
+        end_of_week = start_of_week + timedelta(days=6)  # 本周日
 
-    data = {"task_type_list": task_type_list, "title_name": "本周诺元任务", "start_of_week": start_of_week,
-            "end_of_week": end_of_week}
-    # 创建 Jinja2 环境
-    env = Environment(loader=FileSystemLoader('templates'))
-    env.filters['the_font_bold'] = the_font_bold  # 注册过滤器
+        # 去掉时间部分，仅保留日期
+        start_of_week = start_of_week.date()  # 转为日期类型
+        end_of_week = end_of_week.date()  # 转为日期类型
 
-    async with async_playwright() as p:
-        browser = await p.firefox.launch(headless=True)
+        processed_list = []
+        for region, group in groupby(task_type_list, key=lambda x: x["task_type_region"]):
+            group = list(group)  # 转成列表以便多次操作
+            rowspan = len(group)  # 当前组的行数
+            for idx, item in enumerate(group):
+                if idx == 0:
+                    item["rowspan"] = rowspan  # 第一项标记 rowspan
+                else:
+                    item["task_type_region"] = None  # 其余项置空
+                processed_list.append(item)
 
-        make_nuo_coins_img_url(data)
+        data = {"task_type_list": task_type_list, "title_name": "本周诺元任务", "start_of_week": start_of_week,
+                "end_of_week": end_of_week}
+        # 创建 Jinja2 环境
+        env = Environment(loader=FileSystemLoader('templates'))
+        env.filters['the_font_bold'] = the_font_bold  # 注册过滤器
 
-        # 渲染 HTML
-        template = env.get_template("template-nuo-coins-weekly.html")
-        html_content = template.render(**data)
+        async with async_playwright() as p:
+            browser = await p.firefox.launch(headless=True)
 
-        # 创建新的页面
-        page = await browser.new_page()  # 每次处理新数据时创建新标签页
+            make_nuo_coins_img_url(data)
 
-        # 加载 HTML 内容
-        await page.set_content(html_content, timeout=60000)  # 60 秒
+            # 渲染 HTML
+            template = env.get_template("template-nuo-coins-weekly.html")
+            html_content = template.render(**data)
 
-        # 截图特定区域 (定位到 .card)
-        locator = page.locator(".card")
+            # 创建新的页面
+            page = await browser.new_page()  # 每次处理新数据时创建新标签页
 
-        sanitized_name = 'nuo-coins-task-weekly'  # 清理文件名
-        screenshot_path = screenshot_dir / f"{sanitized_name}.png"
-        await locator.screenshot(path=str(screenshot_path))
+            # 加载 HTML 内容
+            await page.set_content(html_content, timeout=60000)  # 60 秒
 
-        # 关闭当前页面
-        await page.close()
+            # 截图特定区域 (定位到 .card)
+            locator = page.locator(".card")
 
-        await browser.close()
+            await locator.screenshot(path=str(screenshot_path))
+
+            # 关闭当前页面
+            await page.close()
+
+            await browser.close()
 
     logger.success(f"nuo-coins-task-weekly.png are created.")
 
@@ -666,44 +679,46 @@ async def make_all_arms_attack_image():
     logger.success(f"All arms-attack files are created.")
 
 
-async def make_wiki_help():
+async def make_wiki_help(frequency:str = None):
     logger.warning(f"wiki-help.png will be create.")
 
     screenshot_dir = Path(__file__).parent.parent.parent / "screenshots" / "common"
     screenshot_dir.mkdir(exist_ok=True)
 
-    data = {}
+    sanitized_name = 'wiki-help'  # 清理文件名
+    screenshot_path = screenshot_dir / f"{sanitized_name}.png"
 
-    # 创建 Jinja2 环境
-    env = Environment(loader=FileSystemLoader('templates'))
-    env.filters['different_colors'] = nuo_different_colors  # 注册过滤器
-    env.filters['the_font_bold'] = the_font_bold  # 注册过滤器
+    if not screenshot_path.exists() or frequency is None:
+        data = {}
 
-    async with async_playwright() as p:
-        browser = await p.firefox.launch(headless=True)
-        make_wiki_help_img_url(data)
+        # 创建 Jinja2 环境
+        env = Environment(loader=FileSystemLoader('templates'))
+        env.filters['different_colors'] = nuo_different_colors  # 注册过滤器
+        env.filters['the_font_bold'] = the_font_bold  # 注册过滤器
 
-        # 渲染 HTML
-        template = env.get_template("template-wiki-help.html")
-        html_content = template.render(**data)
+        async with async_playwright() as p:
+            browser = await p.firefox.launch(headless=True)
+            make_wiki_help_img_url(data)
 
-        # 创建新的页面
-        page = await browser.new_page()  # 每次处理新数据时创建新标签页
+            # 渲染 HTML
+            template = env.get_template("template-wiki-help.html")
+            html_content = template.render(**data)
 
-        # 加载 HTML 内容
-        await page.set_content(html_content, timeout=60000)  # 60 秒
+            # 创建新的页面
+            page = await browser.new_page()  # 每次处理新数据时创建新标签页
 
-        # 截图特定区域 (定位到 .card)
-        locator = page.locator(".card")
+            # 加载 HTML 内容
+            await page.set_content(html_content, timeout=60000)  # 60 秒
 
-        sanitized_name = 'wiki-help'  # 清理文件名
-        screenshot_path = screenshot_dir / f"{sanitized_name}.png"
-        await locator.screenshot(path=str(screenshot_path))
+            # 截图特定区域 (定位到 .card)
+            locator = page.locator(".card")
 
-        # 关闭当前页面
-        await page.close()
+            await locator.screenshot(path=str(screenshot_path))
 
-        await browser.close()
+            # 关闭当前页面
+            await page.close()
+
+            await browser.close()
 
     logger.success(f"wiki-help.png are created.")
 
@@ -921,65 +936,68 @@ async def make_event_consultation():
     logger.success(f"event-consultation.png are created.")
 
 
-async def make_event_consultation_end_image():
+async def make_event_consultation_end_image(frequency:str = None):
     logger.warning(f"event-consultation-end.png will be create.")
 
     screenshot_dir = Path(__file__).parent.parent.parent / "screenshots" / "common"
     screenshot_dir.mkdir(exist_ok=True)
 
-    tz = pytz.timezone("Asia/Shanghai")
-    current_time = datetime.now(tz)
+    sanitized_name = 'event-consultation-end'  # 清理文件名
+    screenshot_path = screenshot_dir / f"{sanitized_name}.png"
 
-    are_info_list = await EventConsultation.filter(
-        del_flag="0",
-        consultation_start__lte=current_time,
-        consultation_end__gte=current_time
-    ).order_by("consultation_end").values(
-        "consultation_title",
-        "consultation_start",
-        "consultation_end",
-        "consultation_thumbnail_url",
-        "consultation_describe"
-    )
+    if not screenshot_path.exists() or frequency is None:
 
-    are_info_list = list(filter(lambda info: days_diff_from_now(info["consultation_end"]) <= 7, are_info_list))
+        tz = pytz.timezone("Asia/Shanghai")
+        current_time = datetime.now(tz)
 
-    for item in are_info_list:
-        if "consultation_end" in item:
-            item["day_num"] = days_diff_from_now(item["consultation_end"])
-            item["consultation_end"] = str(item["consultation_end"])[:16]
+        are_info_list = await EventConsultation.filter(
+            del_flag="0",
+            consultation_start__lte=current_time,
+            consultation_end__gte=current_time
+        ).order_by("consultation_end").values(
+            "consultation_title",
+            "consultation_start",
+            "consultation_end",
+            "consultation_thumbnail_url",
+            "consultation_describe"
+        )
 
-    data = {"nuo_coins_task_type_list": are_info_list, "title_name": "即将结束的活动"}
+        are_info_list = list(filter(lambda info: days_diff_from_now(info["consultation_end"]) <= 7, are_info_list))
 
-    # 创建 Jinja2 环境
-    env = Environment(loader=FileSystemLoader('templates'))
-    env.filters['tag_different_colors'] = tag_different_colors  # 注册过滤器
+        for item in are_info_list:
+            if "consultation_end" in item:
+                item["day_num"] = days_diff_from_now(item["consultation_end"])
+                item["consultation_end"] = str(item["consultation_end"])[:16]
 
-    async with async_playwright() as p:
-        browser = await p.firefox.launch(headless=True)
-        make_event_consultation_end_url(data)
+        data = {"nuo_coins_task_type_list": are_info_list, "title_name": "即将结束的活动"}
 
-        # 渲染 HTML
-        template = env.get_template("template-event-consultation-end-plus.html")
-        html_content = template.render(**data)
+        # 创建 Jinja2 环境
+        env = Environment(loader=FileSystemLoader('templates'))
+        env.filters['tag_different_colors'] = tag_different_colors  # 注册过滤器
 
-        # 创建新的页面
-        page = await browser.new_page()  # 每次处理新数据时创建新标签页
+        async with async_playwright() as p:
+            browser = await p.firefox.launch(headless=True)
+            make_event_consultation_end_url(data)
 
-        # 加载 HTML 内容
-        await page.set_content(html_content, timeout=60000)  # 60 秒
+            # 渲染 HTML
+            template = env.get_template("template-event-consultation-end-plus.html")
+            html_content = template.render(**data)
 
-        # 截图特定区域 (定位到 .card)
-        locator = page.locator(".calendar-wrapper")
+            # 创建新的页面
+            page = await browser.new_page()  # 每次处理新数据时创建新标签页
 
-        sanitized_name = 'event-consultation-end'  # 清理文件名
-        screenshot_path = screenshot_dir / f"{sanitized_name}.png"
-        await locator.screenshot(path=str(screenshot_path))
+            # 加载 HTML 内容
+            await page.set_content(html_content, timeout=60000)  # 60 秒
 
-        # 关闭当前页面
-        await page.close()
+            # 截图特定区域 (定位到 .card)
+            locator = page.locator(".calendar-wrapper")
 
-        await browser.close()
+            await locator.screenshot(path=str(screenshot_path))
+
+            # 关闭当前页面
+            await page.close()
+
+            await browser.close()
 
     logger.success(f"event-consultation-end.png are created.")
 
@@ -1315,3 +1333,42 @@ async def make_delta_force_produce():
 
         else:
             return None
+
+
+async def screenshot_first_dyn_by_keyword(url: str, keyword: str, fallback_index: int | None = None) -> Image.Image | None:
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=False)
+        context = await browser.new_context()
+        page = await context.new_page()
+
+        await page.goto(url, timeout=60000)
+        await page.wait_for_timeout(5000)  # 等待页面加载
+
+        # 优先通过关键字匹配
+        element = await page.query_selector(f'div.bili-dyn-list__item:has-text("{clean_keyword(keyword)}")')
+
+        if (element is None and fallback_index is not None) or not clean_keyword(keyword):
+            logger.warning(f"未找到包含 “{keyword}” 的动态，尝试使用第 {fallback_index} 个动态作为备选")
+            all_items = await page.query_selector_all('div.bili-dyn-list__item')
+            if fallback_index < len(all_items):
+                element = all_items[fallback_index]
+            else:
+                logger.error(f"页面中没有第 {fallback_index} 个动态")
+                await browser.close()
+                return None
+
+        if element is None:
+            logger.error(f"未找到包含 “{keyword}” 的动态，也没有指定备用索引")
+            await browser.close()
+            return None
+
+        await element.scroll_into_view_if_needed()
+        await page.evaluate("window.scrollBy(0, -150)")
+        await page.wait_for_timeout(500)
+
+        # 将截图保存为字节流
+        image_bytes = await element.screenshot()
+        await browser.close()
+
+        image = Image.open(io.BytesIO(image_bytes))
+        return image

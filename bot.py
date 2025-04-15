@@ -22,9 +22,9 @@ async def do_something():
         config=database_config.TORTOISE_ORM
     )
     # 帮助
-    await make_wiki_help()
+    await make_wiki_help(frequency="first")
     # 即将结束的活动
-    await make_event_consultation_end_image()
+    await make_event_consultation_end_image(frequency="first")
     # 活动资讯
     await make_event_consultation()
     # 初始化开播状态
@@ -38,13 +38,13 @@ async def do_something():
     #食物图鉴
     await make_food_image()
     # 初始化每周域币汇总图片
-    await make_yu_coins_type_image()
+    await make_yu_coins_type_image(frequency="first")
     # 初始化本周域币任务图片
-    await make_yu_coins_weekly_image()
+    await make_yu_coins_weekly_image(frequency="first")
     # 初始化每周诺元汇总图片
-    await make_nuo_coins_type_image()
+    await make_nuo_coins_type_image(frequency="first")
     # 初始化本周诺元任务图片
-    await make_nuo_coins_weekly_image()
+    await make_nuo_coins_weekly_image(frequency="first")
 
 
 # 在这里加载插件

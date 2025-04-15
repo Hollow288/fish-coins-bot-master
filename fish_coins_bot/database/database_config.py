@@ -22,14 +22,14 @@ TORTOISE_ORM = {
     "apps": {
         "models": {
             "models": [
-                "fish_coins_bot.database.live.models",
+                "fish_coins_bot.database.bilibili.live.models",
+                "fish_coins_bot.database.bilibili.dynamics.models",
                 "fish_coins_bot.database.hotta.arms",
                 "fish_coins_bot.database.hotta.willpower",
                 "fish_coins_bot.database.hotta.yu_coins",
                 "fish_coins_bot.database.hotta.nuo_coins",
                 "fish_coins_bot.database.hotta.event_consultation",
-                "fish_coins_bot.database.hotta.food",
-
+                "fish_coins_bot.database.hotta.food"
             ],
             "default_connection": "default",
         },

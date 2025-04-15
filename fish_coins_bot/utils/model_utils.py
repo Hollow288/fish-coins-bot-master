@@ -261,3 +261,33 @@ def days_diff_from_now(utc_plus_8_time):
         return 1
     else:
         return abs(time_diff.days)
+
+
+def clean_keyword(raw: str) -> str:
+    """
+    清洗关键词：
+    1. 去除换行符后内容；
+    2. 按 [xxx] 表情分割；
+    3. 返回最长的非表情片段。
+    """
+    # 1. 只取换行符前的内容
+    first_line = raw.split('\n', 1)[0]
+
+    # 2. 使用正则分割 [xxx] 表情
+    segments = re.split(r'\[[^\[\]]*?\]', first_line)
+
+    # 3. 取最长的一段，并去除前后空白字符
+    return max(segments, key=len).strip() if segments else ""
+
+
+def find_key_word_by_type(type: str, item:dict):
+    try:
+        # 根据范围返回对应的背景颜色
+        if type == 'DYNAMIC_TYPE_DRAW' or type == 'DYNAMIC_TYPE_WORD':
+            return item['modules']['module_dynamic']['major']['opus']['summary']['text']
+        elif type == 'DYNAMIC_TYPE_AV':
+            return item['modules']['module_dynamic']['major']['archive']['title']
+        else:
+            return ''
+    except Exception:
+        return ''

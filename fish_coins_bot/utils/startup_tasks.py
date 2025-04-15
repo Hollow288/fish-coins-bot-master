@@ -1,5 +1,5 @@
 import httpx
-from fish_coins_bot.database.live.models import BotLiveState  # 假设模型文件路径为此
+from fish_coins_bot.database.bilibili.live.models import BotLiveState  # 假设模型文件路径为此
 from nonebot.log import logger
 
 
