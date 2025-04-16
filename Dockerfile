@@ -42,9 +42,9 @@ RUN apt-get update && \
     fonts-noto \
     fonts-noto-cjk \
     fonts-liberation && \
-    echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | debconf-set-selections && \
-    apt-get install -y ttf-mscorefonts-installer && \
-    fc-cache -fv
+    fc-cache -fv && \
+    rm -rf /var/lib/apt/lists/*
+
 
 
 
