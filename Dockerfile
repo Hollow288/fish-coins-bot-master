@@ -38,8 +38,14 @@ RUN apt-get update && \
 
 # 安装 Arial 和 Noto 字体
 RUN apt-get update && \
-    apt-get install -y fonts-noto fonts-noto-cjk fonts-liberation ttf-mscorefonts-installer && \
+    apt-get install -y --no-install-recommends \
+    fonts-noto \
+    fonts-noto-cjk \
+    fonts-liberation && \
+    echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | debconf-set-selections && \
+    apt-get install -y ttf-mscorefonts-installer && \
     fc-cache -fv
+
 
 
 # 安装 Poetry
