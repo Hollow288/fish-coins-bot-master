@@ -1341,8 +1341,7 @@ async def screenshot_first_dyn_by_keyword(url: str, keyword: str, fallback_index
         context = await browser.new_context()
         page = await context.new_page()
 
-        await page.goto(url, timeout=60000)
-        await page.wait_for_timeout(5000)  # 等待页面加载
+        await page.goto(url, timeout=60000, wait_until="networkidle")
 
         # 优先通过关键字匹配
         element = await page.query_selector(f'div.bili-dyn-list__item:has-text("{clean_keyword(keyword)}")')
@@ -1363,7 +1362,7 @@ async def screenshot_first_dyn_by_keyword(url: str, keyword: str, fallback_index
             return None
 
         await element.scroll_into_view_if_needed()
-        await page.evaluate("window.scrollBy(0, -150)")
+        await page.evaluate("window.scrollBy(0, -1000)")
         await page.wait_for_timeout(500)
 
         # 将截图保存为字节流

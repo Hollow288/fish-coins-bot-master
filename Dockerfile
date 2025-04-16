@@ -36,6 +36,12 @@ RUN apt-get update && \
     && apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
+# 安装 Arial 和 Noto 字体
+RUN apt-get update && \
+    apt-get install -y fonts-noto fonts-noto-cjk fonts-liberation ttf-mscorefonts-installer && \
+    fc-cache -fv
+
+
 # 安装 Poetry
 RUN curl -sSL https://install.python-poetry.org | python3 -
 
@@ -58,7 +64,7 @@ COPY pyproject.toml poetry.lock /app/
 RUN poetry install --no-root
 
 # 安装 Playwright 及其依赖的浏览器
-RUN poetry run python -m playwright install
+RUN poetry run python -m playwright install chromium firefox
 
 # 暴露端口
 EXPOSE 5000
