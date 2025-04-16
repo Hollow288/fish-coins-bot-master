@@ -22,7 +22,7 @@ from nonebot_plugin_apscheduler import scheduler
 async def dynamics_push():
     bot = get_bot()
 
-    valid_types = {"DYNAMIC_TYPE_DRAW", "DYNAMIC_TYPE_WORD", "DYNAMIC_TYPE_AV"}
+    valid_types = {"DYNAMIC_TYPE_DRAW", "DYNAMIC_TYPE_WORD", "DYNAMIC_TYPE_ARTICLE", "DYNAMIC_TYPE_AV"}
 
     with open(Path(__file__).parent / 'dynamics_list.json', 'r',
               encoding='utf-8') as f:

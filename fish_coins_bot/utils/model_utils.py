@@ -287,6 +287,8 @@ def find_key_word_by_type(type: str, item:dict):
             return item['modules']['module_dynamic']['major']['opus']['summary']['text']
         elif type == 'DYNAMIC_TYPE_AV':
             return item['modules']['module_dynamic']['major']['archive']['title']
+        elif type == 'DYNAMIC_TYPE_ARTICLE':
+            return item['modules']['module_dynamic']['major']['opus']['title']
         else:
             return ''
     except Exception:

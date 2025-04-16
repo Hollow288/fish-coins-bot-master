@@ -1343,6 +1343,11 @@ async def screenshot_first_dyn_by_keyword(url: str, keyword: str, fallback_index
 
         await page.goto(url, timeout=60000, wait_until="networkidle")
 
+        await page.wait_for_function(
+            "document.querySelectorAll('div.bili-dyn-list__item').length >= 10",
+            timeout=60000
+        )
+
         # 优先通过关键字匹配
         element = await page.query_selector(f'div.bili-dyn-list__item:has-text("{clean_keyword(keyword)}")')
 
