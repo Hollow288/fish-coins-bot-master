@@ -7,6 +7,7 @@ import httpx
 import asyncio
 from io import BytesIO
 import io
+import time
 
 from nonebot.internal.matcher import Matcher
 from nonebot.log import logger
@@ -1341,12 +1342,16 @@ async def screenshot_first_dyn_by_keyword(url: str, keyword: str, fallback_index
         context = await browser.new_context()
         page = await context.new_page()
 
+        goto_start = time.time()
         await page.goto(url, timeout=60000, wait_until="networkidle")
+        logger.info(f"================page.goto方法耗时： {time.time() - goto_start:.2f}s=====================")
 
+        wait_for_function_start = time.time()
         await page.wait_for_function(
             "document.querySelectorAll('div.bili-dyn-list__item').length >= 10",
-            timeout=60000
+            timeout=120000
         )
+        logger.info(f"================page.wait_for_function方法耗时： {time.time() - wait_for_function_start:.2f}s=====================")
 
         # 优先通过关键字匹配
         element = await page.query_selector(f'div.bili-dyn-list__item:has-text("{clean_keyword(keyword)}")')
@@ -1367,7 +1372,7 @@ async def screenshot_first_dyn_by_keyword(url: str, keyword: str, fallback_index
             return None
 
         await element.scroll_into_view_if_needed()
-        await page.evaluate("window.scrollBy(0, -1000)")
+        await page.evaluate("window.scrollBy(0, -3000)")
         await page.wait_for_timeout(500)
 
         # 将截图保存为字节流
