@@ -1349,10 +1349,10 @@ async def screenshot_first_dyn_by_keyword(url: str, keyword: str, fallback_index
         # 主动滚动几次，确保懒加载触发
         for _ in range(5):
             await page.mouse.wheel(0, 1000)
-            await page.wait_for_timeout(8000)
+            await page.wait_for_timeout(2000)
 
         wait_for_function_start = time.time()
-        await page.wait_for_selector("div.bili-dyn-list__item", timeout=30000)
+        await page.wait_for_selector("div.bili-dyn-list__item", timeout=120000)
         logger.info(f"================wait_for_selector方法耗时： {time.time() - wait_for_function_start:.2f}s=====================")
 
         # 优先通过关键字匹配
