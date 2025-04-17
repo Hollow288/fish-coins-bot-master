@@ -1338,20 +1338,22 @@ async def make_delta_force_produce():
 
 async def screenshot_first_dyn_by_keyword(url: str, keyword: str, fallback_index: int | None = None) -> Image.Image | None:
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
-        context = await browser.new_context()
+        browser = await p.chromium.launch(headless=True, args=["--disable-gpu", "--no-sandbox"])
+        context = await browser.new_context(viewport={"width": 1920, "height": 1080})
         page = await context.new_page()
 
         goto_start = time.time()
         await page.goto(url, timeout=60000, wait_until="networkidle")
         logger.info(f"================page.goto方法耗时： {time.time() - goto_start:.2f}s=====================")
 
+        # 主动滚动几次，确保懒加载触发
+        for _ in range(5):
+            await page.mouse.wheel(0, 1000)
+            await page.wait_for_timeout(8000)
+
         wait_for_function_start = time.time()
-        await page.wait_for_function(
-            "document.querySelectorAll('div.bili-dyn-list__item').length >= 10",
-            timeout=120000
-        )
-        logger.info(f"================page.wait_for_function方法耗时： {time.time() - wait_for_function_start:.2f}s=====================")
+        await page.wait_for_selector("div.bili-dyn-list__item", timeout=30000)
+        logger.info(f"================wait_for_selector方法耗时： {time.time() - wait_for_function_start:.2f}s=====================")
 
         # 优先通过关键字匹配
         element = await page.query_selector(f'div.bili-dyn-list__item:has-text("{clean_keyword(keyword)}")')

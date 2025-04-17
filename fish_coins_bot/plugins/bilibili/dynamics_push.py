@@ -18,7 +18,7 @@ require("nonebot_plugin_apscheduler")
 
 from nonebot_plugin_apscheduler import scheduler
 
-@scheduler.scheduled_job("interval", seconds=300, id="dynamics_push")
+@scheduler.scheduled_job("interval", seconds=60, id="dynamics_push")
 async def dynamics_push():
     bot = get_bot()
 
