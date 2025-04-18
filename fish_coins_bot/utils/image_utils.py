@@ -1353,7 +1353,7 @@ async def screenshot_first_dyn_by_keyword(url: str, keyword: str, fallback_index
 
         wait_for_function_start = time.time()
         try:
-            await page.wait_for_selector("div.bili-dyn-list__item", timeout=120000)
+            await page.wait_for_selector("div.bili-dyn-list__item", timeout=90000)
         except TimeoutError:
             logger.error("元素等待超时，尝试截图页面")
 
