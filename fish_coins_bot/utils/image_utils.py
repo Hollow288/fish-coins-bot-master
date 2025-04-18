@@ -1354,7 +1354,7 @@ async def screenshot_first_dyn_by_keyword(url: str, keyword: str, fallback_index
         wait_for_function_start = time.time()
         try:
             await page.wait_for_selector("div.bili-dyn-list__item", timeout=90000)
-        except TimeoutError:
+        except Exception:
             logger.error("元素等待超时，尝试截图页面")
 
             error_img_dir = "/app/screenshots/error-img"
@@ -1365,6 +1365,12 @@ async def screenshot_first_dyn_by_keyword(url: str, keyword: str, fallback_index
             screenshot_path = os.path.join(error_img_dir, f"timeout_{timestamp}.png")
 
             await page.screenshot(path=screenshot_path, full_page=True)
+
+            html_path = os.path.join(error_img_dir, f"timeout_{timestamp}.html")
+            await page.content()
+            with open(html_path, "w", encoding="utf-8") as f:
+                f.write(await page.content())
+
             logger.info(f"超时截图已保存到 {screenshot_path}")
 
             raise  # 或者 return None
