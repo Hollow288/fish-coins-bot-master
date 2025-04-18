@@ -1342,16 +1342,19 @@ async def screenshot_first_dyn_by_keyword(url: str, keyword: str, fallback_index
         context = await browser.new_context(viewport={"width": 1920, "height": 1080})
         page = await context.new_page()
 
-        goto_start = time.time()
         await page.goto(url, timeout=60000, wait_until="networkidle")
-        logger.info(f"================page.goto方法耗时： {time.time() - goto_start:.2f}s=====================")
 
-        # 主动滚动几次，确保懒加载触发
-        for _ in range(5):
-            await page.mouse.wheel(0, 1000)
-            await page.wait_for_timeout(2000)
+        # 处理可能的登录弹窗
+        try:
+            close_btn = await page.query_selector("div.bili-mini-close-icon")
+            if close_btn:
+                logger.info("检测到登录弹窗，尝试点击关闭按钮")
+                await close_btn.click()
+                await page.wait_for_timeout(5000)  # 给动画留一点时间
+        except Exception as e:
+            logger.warning(f"检测或点击登录弹窗关闭按钮时出错：{e}")
 
-        wait_for_function_start = time.time()
+
         try:
             await page.wait_for_selector("div.bili-dyn-list__item", timeout=90000)
         except Exception:
@@ -1375,7 +1378,6 @@ async def screenshot_first_dyn_by_keyword(url: str, keyword: str, fallback_index
 
             raise  # 或者 return None
 
-        logger.info(f"================wait_for_selector方法耗时： {time.time() - wait_for_function_start:.2f}s=====================")
 
         # 优先通过关键字匹配
         element = await page.query_selector(f'div.bili-dyn-list__item:has-text("{clean_keyword(keyword)}")')
