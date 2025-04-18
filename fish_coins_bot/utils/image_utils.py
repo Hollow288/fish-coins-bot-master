@@ -1352,7 +1352,23 @@ async def screenshot_first_dyn_by_keyword(url: str, keyword: str, fallback_index
             await page.wait_for_timeout(2000)
 
         wait_for_function_start = time.time()
-        await page.wait_for_selector("div.bili-dyn-list__item", timeout=120000)
+        try:
+            await page.wait_for_selector("div.bili-dyn-list__item", timeout=120000)
+        except TimeoutError:
+            logger.error("元素等待超时，尝试截图页面")
+
+            error_img_dir = "/app/screenshots/error-img"
+            os.makedirs(error_img_dir, exist_ok=True)
+
+            # 生成带时间戳的文件名
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            screenshot_path = os.path.join(error_img_dir, f"timeout_{timestamp}.png")
+
+            await page.screenshot(path=screenshot_path, full_page=True)
+            logger.info(f"超时截图已保存到 {screenshot_path}")
+
+            raise  # 或者 return None
+
         logger.info(f"================wait_for_selector方法耗时： {time.time() - wait_for_function_start:.2f}s=====================")
 
         # 优先通过关键字匹配
