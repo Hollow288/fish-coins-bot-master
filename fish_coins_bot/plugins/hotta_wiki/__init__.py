@@ -11,6 +11,7 @@ from .reply_food_img import food_img_handle_function
 from .reply_nuo_coins import nuo_coins_weekly_img_handle_function, add_nuo_coins_weekly_handle_function, \
     delete_nuo_coins_weekly_handle_function, flushed_nuo_coins_weekly_handle_function, \
     nuo_coins_type_img_handle_function
+from .reply_remind import home_special_voucher
 from .reply_willpower_img import willpower_img_handle_function
 from .reply_yu_coins import yu_coins_type_img_handle_function, add_yu_coins_weekly_handle_function, \
     yu_coins_weekly_img_handle_function, flushed_yu_coins_weekly_handle_function, delete_yu_coins_weekly_handle_function
@@ -50,5 +51,7 @@ __all__ = [
     "event_consultation_end_scheduled",
     # 食物相关
     "food_img_scheduled",
-    "food_img_handle_function"
+    "food_img_handle_function",
+    # 提醒
+    "home_special_voucher"
 ]
