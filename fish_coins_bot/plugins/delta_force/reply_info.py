@@ -14,7 +14,7 @@ def is_group_chat(event) -> bool:
 reply_room = on_command(
     "密码房密码",
     rule=Rule(is_group_chat),
-    aliases={"密码房", "三角洲密码房", "三角洲密码", "三角洲钥匙房","鼠鼠行动密码房"},
+    aliases={"密码房", "三角洲密码房", "三角洲密码", "三角洲钥匙房","鼠鼠行动密码房","密码","今日密码"},
     priority=10,
     block=True,
 )
