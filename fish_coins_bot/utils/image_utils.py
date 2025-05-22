@@ -8,6 +8,8 @@ import asyncio
 from io import BytesIO
 import io
 import time
+import random
+from typing import Optional
 
 from nonebot.internal.matcher import Matcher
 from nonebot.log import logger
@@ -1336,31 +1338,146 @@ async def make_delta_force_produce():
             return None
 
 
-async def screenshot_first_dyn_by_keyword(url: str, keyword: str, fallback_index: int | None = None) -> Image.Image | None:
+async def random_delay(min_sec: float = 0.5, max_sec: float = 3.0):
+    """随机延迟"""
+    await asyncio.sleep(random.uniform(min_sec, max_sec))
+
+
+async def screenshot_first_dyn_by_keyword(
+        url: str,
+        keyword: str,
+        fallback_index: Optional[int] = None
+) -> Optional[Image.Image]:
+
+    # 浏览器窗口大小
+    viewport_width = random.choice([1920, 1366, 1440, 1600])
+    viewport_height = random.choice([1080, 768, 900, 1050])
+
+    # 用户代理
+    user_agents = [
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/115.0",
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Mobile/15E148 Safari/604.1"
+    ]
+
     async with async_playwright() as p:
         browser = await p.chromium.launch(
             headless=True,
             args=[
                 "--no-sandbox",
                 "--disable-blink-features=AutomationControlled",
-                "--disable-gpu"
+                "--disable-gpu",
+                "--disable-dev-shm-usage",
+                "--disable-web-security",
+                "--disable-infobars",
+                "--hide-scrollbars",
+                "--mute-audio",
+                f"--window-size={viewport_width},{viewport_height}",
+            ],
+            # 随机启动参数
+            ignore_default_args=[
+                "--enable-automation",
+                "--disable-popup-blocking"
             ]
         )
         context = await browser.new_context(
-            viewport={"width": 1920, "height": 1080},
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+            viewport={"width": viewport_width, "height": viewport_height},
+            user_agent=random.choice(user_agents),
+            locale="zh-CN",
+            timezone_id="Asia/Shanghai",
+            # 媒体和权限设置
+            permissions=["geolocation"],
+            geolocation={"latitude": 39.9042, "longitude": 116.4074},  # 北京坐标
+            color_scheme="light",
+            # 随机HTTP头
+            extra_http_headers={
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+                "Accept-Language": "zh-CN,zh;q=0.8,zh-TW;q=0.7,zh-HK;q=0.5,en-US;q=0.3,en;q=0.2",
+                "Accept-Encoding": "gzip, deflate, br",
+                "Referer": "https://www.bilibili.com/",
+                "DNT": str(random.randint(0, 1)),  # 随机决定是否发送Do Not Track头
+                "Upgrade-Insecure-Requests": "1"
+            }
         )
-        await context.set_extra_http_headers({
-            "Accept-Language": "zh-CN,zh;q=0.9",
-        })
 
-        page = await context.new_page()
-
-        await page.add_init_script("""
+        # 脚本
+        await context.add_init_script("""
+            // 覆盖webdriver属性
             Object.defineProperty(navigator, 'webdriver', {
                 get: () => undefined
             });
+
+            // 覆盖plugins属性
+            Object.defineProperty(navigator, 'plugins', {
+                get: () => [1, 2, 3, 4, 5],
+            });
+
+            // 覆盖languages属性
+            Object.defineProperty(navigator, 'languages', {
+                get: () => ['zh-CN', 'zh', 'en'],
+            });
+
+            // 修改chrome对象
+            window.chrome = {
+                app: {
+                    isInstalled: false,
+                },
+                webstore: {
+                    onInstallStageChanged: {},
+                    onDownloadProgress: {},
+                },
+                runtime: {
+                    PlatformOs: {
+                        MAC: 'mac',
+                        WIN: 'win',
+                        ANDROID: 'android',
+                        CROS: 'cros',
+                        LINUX: 'linux',
+                        OPENBSD: 'openbsd',
+                    },
+                    PlatformArch: {
+                        ARM: 'arm',
+                        X86_32: 'x86-32',
+                        X86_64: 'x86-64',
+                    },
+                    PlatformNaclArch: {
+                        ARM: 'arm',
+                        X86_32: 'x86-32',
+                        X86_64: 'x86-64',
+                    },
+                    RequestUpdateCheckStatus: {
+                        THROTTLED: 'throttled',
+                        NO_UPDATE: 'no_update',
+                        UPDATE_AVAILABLE: 'update_available',
+                    },
+                    OnInstalledReason: {
+                        INSTALL: 'install',
+                        UPDATE: 'update',
+                        CHROME_UPDATE: 'chrome_update',
+                        SHARED_MODULE_UPDATE: 'shared_module_update',
+                    },
+                    OnRestartRequiredReason: {
+                        APP_UPDATE: 'app_update',
+                        OS_UPDATE: 'os_update',
+                        PERIODIC: 'periodic',
+                    },
+                },
+            };
+
+            // 修改权限相关
+            const originalQuery = window.navigator.permissions.query;
+            window.navigator.permissions.query = (parameters) => (
+                parameters.name === 'notifications' ?
+                    Promise.resolve({ state: Notification.permission }) :
+                    originalQuery(parameters)
+            );
         """)
+
+        page = await context.new_page()
+
+        # 随机化导航行为
+        await random_delay(1.0, 3.0)  # 打开页面前的随机延迟
 
         await page.goto(url, timeout=60000, wait_until="networkidle")
 

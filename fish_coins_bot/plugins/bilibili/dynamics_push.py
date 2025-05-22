@@ -1,3 +1,5 @@
+import time
+
 from fish_coins_bot.database.bilibili.live.models import BotLiveState
 import json
 from pathlib import Path
@@ -43,6 +45,16 @@ async def dynamics_push():
             id_str = item['id_str']
             exists = await DynamicsHistory.exists(uid=uid, id_str=id_str)
             if not exists:
+
+                pub_ts = item['modules']['module_author']['pub_ts']
+                now_ts = int(time.time())  # 当前时间戳（秒）
+                if now_ts - pub_ts >= 2 * 60 * 60:  # 2 小时 = 7200 秒
+                    await DynamicsHistory.create(
+                        uid=uid,
+                        id_str=item['id_str']
+                    )
+                    continue
+
                 key_word = find_key_word_by_type(type=type_, item=item)
                 image = await screenshot_first_dyn_by_keyword(
                     url=f"https://space.bilibili.com/{uid}/dynamic",
