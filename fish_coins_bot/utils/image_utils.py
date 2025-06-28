@@ -1087,6 +1087,9 @@ async def make_delta_force_room():
     # 发送 HTTP 请求获取数据
     with httpx.Client() as client:
         version_response = client.post(version_url, headers=version_headers)
+
+        logger.info(f"version_response: {version_response}.")
+
         php_sess_id = version_response.cookies.get("PHPSESSID")
         version_response_data = version_response.json()
         built_ver = str(version_response_data["built_ver"])
