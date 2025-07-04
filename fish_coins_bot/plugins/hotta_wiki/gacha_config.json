@@ -1,0 +1,20 @@
+{
+  "settings": {
+    "ssr_probability": 0.0075,
+    "sr_probability": 0.01,
+    "up_characters": "UP"
+  },
+  "banner": {
+    "SSR": ["SSR1","SSR2","SSR3","SSR4"],
+    "SR": ["SR1","SR2","SR3","SR4"],
+    "R": ["R1","R2","R3","R4"]
+  },
+  "characters_config": {
+    "默认": {
+      "characters_x": -100,
+      "characters_y": 60,
+      "name_x": 10,
+      "name_y": 350
+    }
+  }
+}

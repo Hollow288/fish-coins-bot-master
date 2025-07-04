@@ -293,3 +293,11 @@ def find_key_word_by_type(type: str, item:dict):
             return ''
     except Exception:
         return ''
+
+def update_last_two_results(prev_result: str, this_result: str) -> str:
+    """
+    更新 last_two_ssr_up_results，始终保持最后两个结果（如“歪中”、“中中”等）。
+    """
+    if prev_result is None:
+        prev_result = ""
+    return (prev_result + this_result)[-2:]

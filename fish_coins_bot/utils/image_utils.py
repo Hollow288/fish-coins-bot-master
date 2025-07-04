@@ -2,7 +2,7 @@ import os
 from itertools import groupby
 import json
 import pytz
-from PIL import Image, ImageDraw, ImageFilter, ImageFont
+from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageEnhance
 import httpx
 import asyncio
 from io import BytesIO
@@ -15,6 +15,8 @@ from nonebot.internal.matcher import Matcher
 from nonebot.log import logger
 from pathlib import Path
 from playwright.async_api import async_playwright
+from typing_extensions import Tuple
+
 from fish_coins_bot.database.hotta.arms import Arms, ArmsStarRatings, ArmsCharacteristics, ArmsExclusives, \
     ArmsPrimaryAttacks, ArmsDodgeAttacks, ArmsCooperationAttacks, ArmsSkillAttacks, ArmsSynesthesia
 from jinja2 import Environment, FileSystemLoader
@@ -1547,3 +1549,253 @@ async def screenshot_first_dyn_by_keyword(
 
         image = Image.open(io.BytesIO(image_bytes))
         return image
+
+
+def add_side_glow(
+    base: Image.Image,
+    glow_color=(255, 140, 0),
+    radius=100,
+    intensity=0.8,
+    y_start: int = 0,
+    y_end: int = None
+) -> Image.Image:
+    """
+    给 base 图像左右两侧添加光效（模拟发光边缘），支持限定 y 范围及上下透明渐变
+    :param base: 原始图像（RGBA）
+    :param glow_color: 发光颜色
+    :param radius: 光柱宽度（左右各 radius 像素）
+    :param intensity: 发光强度（0~1）
+    :param y_start: 光效起始 y 坐标
+    :param y_end: 光效结束 y 坐标（默认到底部）
+    """
+    width, height = base.size
+    if y_end is None or y_end > height:
+        y_end = height
+
+    glow_layer = Image.new("RGBA", base.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(glow_layer)
+
+    glow_height = y_end - y_start
+
+    for i in range(radius):
+        # x方向 alpha 比例
+        alpha_x = 1 - (i / radius)
+        for y in range(y_start, y_end):
+            # y方向 alpha 比例：距离上下边界越近越暗
+            dist_y = min(y - y_start, y_end - y)
+            alpha_y = dist_y / (glow_height / 2)
+            final_alpha = int(intensity * 255 * alpha_x * alpha_y)
+
+            # 左边光柱
+            draw.point((i, y), fill=glow_color + (final_alpha,))
+            # 右边光柱
+            draw.point((width - i - 1, y), fill=glow_color + (final_alpha,))
+
+    glow_layer = glow_layer.filter(ImageFilter.GaussianBlur(radius=radius // 3))
+    base.alpha_composite(glow_layer)
+    return base
+
+
+def paste_image(
+    base: Image.Image,
+    image_path: Path,
+    scale: float,
+    pos_x: int,
+    pos_y: int,
+    opacity: float = 1.0,
+    background_color: Optional[tuple[int, int, int, int]] = None
+) -> Image.Image:
+    """
+    将图像按比例缩放并粘贴到 base 图像的指定位置，可选设置透明度与背景色
+    :param base: 背景图像
+    :param image_path: 要粘贴的图像路径
+    :param scale: 缩放比例（例如 1.0 表示原始大小）
+    :param pos_x: 粘贴位置的 x 坐标
+    :param pos_y: 粘贴位置的 y 坐标
+    :param opacity: 透明度，0.0 ~ 1.0（默认 1.0 不透明）
+    :param background_color: (r, g, b, a)，为透明图像添加背景色（默认 None 不添加）
+    """
+    if not image_path.exists():
+        logger.warning(f"贴图未找到：{image_path}")
+        return base  # 原样返回，不贴图也不中断
+
+    img = Image.open(image_path).convert("RGBA")
+
+    # 按比例缩放
+    new_size = (int(img.width * scale), int(img.height * scale))
+    img = img.resize(new_size, resample=Image.Resampling.LANCZOS)
+
+    # 如果需要添加背景色
+    if background_color is not None:
+        bg = Image.new("RGBA", img.size, background_color)
+        bg.paste(img, (0, 0), img)
+        img = bg
+
+    # 调整透明度
+    if opacity < 1.0:
+        alpha = img.getchannel("A")
+        alpha = ImageEnhance.Brightness(alpha).enhance(opacity)
+        img.putalpha(alpha)
+
+    base.paste(img, (pos_x, pos_y), img)
+    return base
+
+def draw_vertical_text(
+    font_path: str,
+    font_size: int,
+    image: Image.Image,
+    pos_x: int,
+    pos_y: int,
+    text: str,
+    fill: Tuple[int, int, int, int] = (255, 255, 255, 255),
+    vertical: bool = False
+) -> Image.Image:
+    """
+    在图片上添加文字，支持横排或竖排显示
+    :param font_path: 字体路径
+    :param font_size: 字号
+    :param image: 要绘制的图片
+    :param pos_x: 起始 x 坐标
+    :param pos_y: 起始 y 坐标
+    :param text: 要绘制的文字
+    :param fill: 字体颜色
+    :param vertical: 是否竖排显示，默认 False（横排）
+    """
+    draw = ImageDraw.Draw(image)
+    font = ImageFont.truetype(font_path, font_size)
+
+    if vertical:
+        # 每个字符向下排列
+        for i, char in enumerate(text):
+            y = pos_y + i * font_size
+            draw.text((pos_x, y), char, font=font, fill=fill)
+    else:
+        # 横排直接写整句
+        draw.text((pos_x, pos_y), text, font=font, fill=fill)
+
+    return image
+
+def paste_cards_on_background(
+    background: Image.Image,
+    cards: list[Image.Image],
+    start_x: int,
+    start_y: int,
+    gap: int = 0,
+    scale: float = 1.0
+) -> Image.Image:
+    """
+    将多个卡片图像横向排列贴到背景图上，并支持缩放倍率
+    :param background: 背景图
+    :param cards: 卡片图像列表
+    :param start_x: 起始 x 坐标
+    :param start_y: 起始 y 坐标
+    :param gap: 卡片之间的间隔
+    :param scale: 缩放倍率（默认 1.0 不缩放）
+    """
+    for i, card in enumerate(cards):
+        # 缩放
+        if scale != 1.0:
+            new_size = (int(card.width * scale), int(card.height * scale))
+            card = card.resize(new_size, resample=Image.Resampling.LANCZOS)
+
+        pos_x = start_x + i * (card.width + gap)
+        background.paste(card, (pos_x, start_y), card)
+    return background
+
+def render_gacha_result(results: list[dict]) -> Image.Image:
+
+    base_path = Path(__file__).parent.parent.parent / "screenshots" / "gacha-resources"
+    # 主背景图
+    main_back_path = base_path / "common-img" / "chouka_bg.png"
+    main_back_img = Image.open(main_back_path).convert("RGBA")
+
+    cards = []
+    already_obtained = []
+    for i, result in enumerate(results):
+        # 每个单独生成
+
+        quality = result.get("quality", "R")
+        name = result.get("name", "电磁刃")
+
+
+        back_filename = {
+            "SSR": "G-1.png",
+            "SR": "G-3.png",
+            "R": "G-2.png"
+        }.get(quality, "G-2.png")
+
+        back_path = base_path / back_filename
+        base_img = Image.open(back_path).convert("RGBA")
+
+        glow_color = {
+            "SSR": (255, 165, 0),
+            "SR": (180, 80, 255),
+            "R": (80, 180, 255)
+        }.get(quality, (255, 255, 255))  # 默认白色防止报错
+
+        base_img = add_side_glow(base_img, glow_color=glow_color, radius=20, intensity=0.8, y_start=40, y_end=830)
+        # base_img = add_side_glow(base_img, glow_color=(255, 165, 0), radius=20, intensity=0.8, y_start=40, y_end=830)
+        # base_img = add_side_glow(base_img, glow_color=(180, 80, 255), radius=20, intensity=0.8, y_start=40, y_end=830)
+        # base_img = add_side_glow(base_img, glow_color=(80, 180, 255), radius=20, intensity=0.8, y_start=40, y_end=830)
+
+        base_img = paste_image(base_img, base_path / f"{name}.png", 0.6, -100, 60, 0.9,None)
+
+        base_img = paste_image(base_img, base_path / "common-img" / f"{quality}.png", 0.6, -10, 120,1,None)
+
+        base_img = paste_image(base_img, base_path / f"{name}.png", 1, 10, 350,1,None)
+
+        if name not in already_obtained:
+            base_img = paste_image(base_img, base_path / "common-img" / "new_2.png", 0.8, 8, 125,1,None)
+
+        base_img = paste_image(base_img, base_path / "common-img" / "UI_UP_Tips01_Bkg.png", 0.6, 150, 400, 0.3,None)
+        if name in already_obtained :
+            if quality == 'R':
+                base_img = paste_image(base_img, base_path / "common-img" / "Weapon_R_Exp01.png", 0.3, 50, 580, 0.9,(71,179,163,255))
+            else :
+                base_img = paste_image(base_img, base_path / "common-img" / "Icon_Item_Fusion_Core.webp", 0.6, 50, 580,0.9, (253, 231, 138, 255))
+
+            base_img = paste_image(base_img, base_path / "common-img" / "image_yifenjie.png", 0.8, 50, 540, 1,None)
+
+        # 添加竖排文字
+        base_img = draw_vertical_text(
+            font_path="fish_coins_bot/fonts/AlibabaPuHuiTi-3-55-Regular.otf",
+            font_size=18,
+            image=base_img,
+            pos_x=162,
+            pos_y=430,
+            text=name,
+            fill=(255, 255, 255, 255),
+            vertical = True
+        )
+
+        cards.append(base_img)
+        already_obtained.append(name)
+
+    # 合并卡片到背景图
+    result = paste_cards_on_background(
+        background=main_back_img,
+        cards=cards,
+        start_x=200,  # 居中起始 x 坐标
+        start_y=200,  # 根据实际背景图高度微调
+        gap=0,  # 紧贴排布（不留缝）
+        scale=0.8
+    )
+
+    #订购一次 订购十次 分享 返回图标
+    result = paste_image(result, base_path / "common-img" / "1c.png", 0.8, 1300, 900, 1,None)
+    result = paste_image(result, base_path / "common-img" / "10c.png", 0.8, 1500, 900, 1,None)
+    result = paste_image(result, base_path / "common-img" / "share.png", 0.8, 1700, 900, 1,None)
+    result = paste_image(result, base_path / "common-img" / "common_btn_back.png", 0.8, 30, 30, 1,None)
+
+    #返回文字
+    draw_vertical_text(
+        font_path="fish_coins_bot/fonts/AlibabaPuHuiTi-3-55-Regular.otf",
+        font_size=45,
+        image=result,
+        pos_x=200,
+        pos_y=55,
+        text='返回',
+        fill=(255, 255, 255, 255)
+    )
+
+    return result
