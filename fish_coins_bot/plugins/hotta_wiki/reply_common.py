@@ -87,6 +87,18 @@ async def gacha_handle_function(bot: Bot, event: GroupMessageEvent, args: Messag
     user_id = event.sender.user_id
     # 发送者的抽卡记录
     gacha_record = await GachaRecord.filter(user_id=user_id).first()
+
+    if gacha_record:
+        # 判断是否为今天
+        now = datetime.now()
+        last_time = gacha_record.update_time
+
+        if last_time and last_time.date() == now.date():
+            # 如果是今天已经抽过了
+            await gacha.send(MessageSegment.at(user_id) + "今天已十连！")
+            return
+
+
     if not gacha_record:
         gacha_record = await GachaRecord.create(
             user_id=user_id,
