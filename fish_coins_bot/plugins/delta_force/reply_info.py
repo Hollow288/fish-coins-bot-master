@@ -43,9 +43,11 @@ reply_produce = on_command(
     block=True,
 )
 
-@reply_produce.handle()
+# @reply_produce.handle()
 async def reply_produce_handle_function(args: Message = CommandArg()):
-
+    """
+        废弃
+    """
     produce_image = await make_delta_force_produce()
     # 检查文件是否存在
     if produce_image is None:

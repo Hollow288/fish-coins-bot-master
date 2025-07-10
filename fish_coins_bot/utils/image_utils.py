@@ -31,7 +31,8 @@ from fish_coins_bot.utils.model_utils import make_arms_img_url, highlight_number
     make_willpower_img_url, make_yu_coins_img_url, the_font_bold, make_nuo_coins_img_url, \
     yu_different_colors, nuo_different_colors, make_wiki_help_img_url, days_diff_from_now, \
     format_datetime_with_timezone, make_event_consultation_end_url, make_food_img_url, tag_different_colors, \
-    delta_force_map_abbreviation, clean_keyword
+    delta_force_map_abbreviation, clean_keyword, get_waf_cookie, common_fetch_door_pin_response, \
+    tem_fetch_door_pin_response
 from fish_coins_bot.utils.nuo_coins_utils import select_or_add_this_weekly_nuo_coins_weekly_id
 from fish_coins_bot.utils.yu_coins_utils import select_or_add_this_weekly_yu_coins_weekly_id
 
@@ -1069,6 +1070,7 @@ async def make_food_image():
     logger.success(f"All food files are created.")
 
 
+
 async def make_delta_force_room():
     # 读取 JSON 数据
     with open(Path(__file__).parent.parent / 'plugins' / 'delta_force' / 'delta_force_request.json', 'r', encoding='utf-8') as f:
@@ -1076,106 +1078,87 @@ async def make_delta_force_room():
 
     FONT_PATH = "fish_coins_bot/fonts/字帮玩酷体.ttf"
 
-    version_request_info = request_data.get('getVersion', {})
-    door_pin_request_info = request_data.get('getDoorPin', {})
+    # response_data = await common_fetch_door_pin_response(request_data)
+    # type = 'common'
 
-    # 提取请求头和 URL
-    version_headers = version_request_info.get('headers', {})
-    version_url = version_request_info.get('url', '')
+    response_data = await tem_fetch_door_pin_response(request_data)
+    type = 'tem'
 
-    door_pin_headers = door_pin_request_info.get('headers', {})
-    door_pin_url = door_pin_request_info.get('url', '')
+    # if response_data['code'] == 1 and response_data['data'] and type == 'common':
+    if response_data['code'] == 0 and response_data['data'] and type == 'tem':
+        room_data = response_data['data']
 
-    # 发送 HTTP 请求获取数据
-    with httpx.Client() as client:
-        version_response = client.post(version_url, headers=version_headers)
+        # 动态计算图片高度
+        base_width = 600
+        row_height = 60  # 每行的高度
+        title_height = 80  # 标题的高度
+        header_height = 50  # 表头的高度
+        padding = 20  # 边距
+        image_height = title_height + header_height + len(room_data) * row_height + padding * 2 + 45
 
-        logger.info(f"version_response: {version_response}.")
+        # 创建图片
+        image = Image.new('RGB', (base_width, image_height), color=(245, 245, 245))
 
-        php_sess_id = version_response.cookies.get("PHPSESSID")
-        version_response_data = version_response.json()
-        built_ver = str(version_response_data["built_ver"])
-        door_pin_headers["Cookie"] += php_sess_id
+        background_path = "fish_coins_bot/img/password_background.png"
+        background_image = Image.open(background_path)
+        background_image = background_image.resize((base_width, image_height))  # 调整尺寸匹配新图片
 
-    with httpx.Client() as client:
-        request_data = "version=" + built_ver
-        door_pin_response = client.post(door_pin_url, headers=door_pin_headers, data=request_data)
-        response_data = door_pin_response.json()
+        image.paste(background_image, (0, 0))
 
-        if response_data['code'] == 1 and response_data['data']:
-            room_data = response_data['data']
+        draw = ImageDraw.Draw(image)
 
-            # 动态计算图片高度
-            base_width = 600
-            row_height = 60  # 每行的高度
-            title_height = 80  # 标题的高度
-            header_height = 50  # 表头的高度
-            padding = 20  # 边距
-            image_height = title_height + header_height + len(room_data) * row_height + padding * 2 + 40
+        # 加载自定义字体
+        try:
+            font_title = ImageFont.truetype(FONT_PATH, 36)  # 标题字体
+            font_header = ImageFont.truetype(FONT_PATH, 28)  # 表头字体
+            font_text = ImageFont.truetype(FONT_PATH, 26)  # 正文字体
+        except IOError:
+            print("字体文件无法加载，改用默认字体")
+            font_title = ImageFont.load_default()
+            font_header = ImageFont.load_default()
+            font_text = ImageFont.load_default()
 
-            # 创建图片
-            image = Image.new('RGB', (base_width, image_height), color=(245, 245, 245))
+        # 绘制标题
+        title_text = ""
+        title_bbox = draw.textbbox((0, 0), title_text, font=font_title)  # 获取文本边界
+        text_width = title_bbox[2] - title_bbox[0]
+        draw.text(((base_width - text_width) / 2, padding), title_text, fill=(0, 0, 0), font=font_title)
 
-            background_path = "fish_coins_bot/img/password_background.png"
-            background_image = Image.open(background_path)
-            background_image = background_image.resize((base_width, image_height))  # 调整尺寸匹配新图片
+        # 画分割线
+        line_y = padding + title_height - 10
+        # draw.line([(padding, line_y), (base_width - padding, line_y)], fill=(0, 0, 0), width=3)
 
-            image.paste(background_image, (0, 0))
+        # 表头
+        y_position = line_y + 40  # 表头起始位置
+        col_map = 50  # 地图列起点
+        col_pass = 250  # 密码列起点
+        col_date = 450  # 日期列起点
+        draw.text((col_map, y_position), "地图", fill=(0, 0, 0), font=font_header)
+        draw.text((col_pass, y_position), "密码", fill=(0, 0, 0), font=font_header)
+        draw.text((col_date, y_position), "日期", fill=(0, 0, 0), font=font_header)
 
-            draw = ImageDraw.Draw(image)
+        # 画分割线
+        y_position += header_height - 10
+        # draw.line([(padding, y_position), (base_width - padding, y_position)], fill=(0, 0, 0), width=2)
 
-            # 加载自定义字体
-            try:
-                font_title = ImageFont.truetype(FONT_PATH, 36)  # 标题字体
-                font_header = ImageFont.truetype(FONT_PATH, 28)  # 表头字体
-                font_text = ImageFont.truetype(FONT_PATH, 26)  # 正文字体
-            except IOError:
-                print("字体文件无法加载，改用默认字体")
-                font_title = ImageFont.load_default()
-                font_header = ImageFont.load_default()
-                font_text = ImageFont.load_default()
+        # 绘制房间信息
+        y_position += 20  # 数据起始行
+        for map, data in room_data.items():
+            map_name = delta_force_map_abbreviation.get(map, map)  # 获取地图中文名
+            password = data['password']
+            updated_raw = data['updated'][:8]
+            updated = f"{updated_raw[:4]}-{updated_raw[4:6]}-{updated_raw[6:]}"  # 格式化为 YYYY-MM-DD
 
-            # 绘制标题
-            title_text = ""
-            title_bbox = draw.textbbox((0, 0), title_text, font=font_title)  # 获取文本边界
-            text_width = title_bbox[2] - title_bbox[0]
-            draw.text(((base_width - text_width) / 2, padding), title_text, fill=(0, 0, 0), font=font_title)
+            draw.text((col_map, y_position), map_name, fill=(50, 50, 50), font=font_text)
+            draw.text((col_pass, y_position), password, fill=(50, 50, 50), font=font_text)
+            draw.text((col_date - 20, y_position), updated, fill=(50, 50, 50), font=font_text)
 
-            # 画分割线
-            line_y = padding + title_height - 10
-            # draw.line([(padding, line_y), (base_width - padding, line_y)], fill=(0, 0, 0), width=3)
+            y_position += row_height  # 调整行距
 
-            # 表头
-            y_position = line_y + 40  # 表头起始位置
-            col_map = 50  # 地图列起点
-            col_pass = 250  # 密码列起点
-            col_date = 450  # 日期列起点
-            draw.text((col_map, y_position), "地图", fill=(0, 0, 0), font=font_header)
-            draw.text((col_pass, y_position), "密码", fill=(0, 0, 0), font=font_header)
-            draw.text((col_date, y_position), "日期", fill=(0, 0, 0), font=font_header)
+        return image
 
-            # 画分割线
-            y_position += header_height - 10
-            # draw.line([(padding, y_position), (base_width - padding, y_position)], fill=(0, 0, 0), width=2)
-
-            # 绘制房间信息
-            y_position += 20  # 数据起始行
-            for map, data in room_data.items():
-                map_name = delta_force_map_abbreviation.get(map, map)  # 获取地图中文名
-                password = data['password']
-                updated_raw = data['updated'][:8]
-                updated = f"{updated_raw[:4]}-{updated_raw[4:6]}-{updated_raw[6:]}"  # 格式化为 YYYY-MM-DD
-
-                draw.text((col_map, y_position), map_name, fill=(50, 50, 50), font=font_text)
-                draw.text((col_pass, y_position), password, fill=(50, 50, 50), font=font_text)
-                draw.text((col_date - 20, y_position), updated, fill=(50, 50, 50), font=font_text)
-
-                y_position += row_height  # 调整行距
-
-            return image
-
-        else:
-            return None
+    else:
+        return None
 
 
 def create_rounded_rectangle_mask(size, radius):

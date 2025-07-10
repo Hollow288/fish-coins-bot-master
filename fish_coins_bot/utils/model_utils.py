@@ -1,11 +1,14 @@
 import os
 
+import httpx
 import pytz
 from dotenv import load_dotenv
 import re
 import json
 from pathlib import Path
 from datetime import datetime
+import hashlib
+import re
 
 # 加载 .env 文件
 load_dotenv()
@@ -37,7 +40,14 @@ delta_force_map_abbreviation = {
     "db": "零号大坝",
     "cgxg": "长弓溪谷",
     "bks": "巴克什",
-    "htjd": "航天基地"
+    "htjd": "航天基地",
+    "cxjy": "潮汐监狱",
+
+    "a": "零号大坝",
+    "b": "长弓溪谷",
+    "c": "巴克什",
+    "d": "航天基地",
+    "e": "潮汐监狱"
 }
 
 def arms_level(arms):
@@ -301,3 +311,107 @@ def update_last_two_results(prev_result: str, this_result: str) -> str:
     if prev_result is None:
         prev_result = ""
     return (prev_result + this_result)[-2:]
+
+
+def solve_challenge(k: str, sv: str) -> int:
+    i = 0
+    while True:
+        v = hashlib.sha1(f"{k}{i}".encode()).hexdigest()
+        if v.startswith(sv):
+            return i
+        i += 1
+
+def extract_k_sv(html_text: str) -> tuple[str, str] | None:
+    k_match = re.search(r"var k=['\"]([a-f0-9]+)['\"]", html_text)
+    sv_match = re.search(r"var sv=['\"]([a-zA-Z0-9]+)['\"]", html_text)
+    if k_match and sv_match:
+        return k_match.group(1), sv_match.group(1)
+    return None
+
+
+
+
+
+async def get_waf_cookie(js_challenge_url, js_challenge_headers):
+    with httpx.Client() as client:
+        js_challenge_response = client.get(js_challenge_url, headers=js_challenge_headers)
+
+        html = js_challenge_response.text
+        result = extract_k_sv(html)
+        if not result:
+            raise ValueError("无法从响应中提取验证参数 k 和 sv")
+
+        k, sv = result
+        i = solve_challenge(k, sv)
+
+        # 构造验证 Cookie
+        waf_cookie = f"{k}_{i}"
+        return {"waf_cookie13": waf_cookie}
+
+
+import httpx
+
+async def common_fetch_door_pin_response(request_data: dict) -> dict:
+    # 解构请求信息
+    js_challenge_info = request_data.get('getJsChallenge', {})
+    version_info = request_data.get('getVersion', {})
+    door_pin_info = request_data.get('getDoorPin', {})
+
+    js_url = js_challenge_info.get('url', '')
+    js_headers = js_challenge_info.get('headers', {})
+
+    version_url = version_info.get('url', '')
+    version_headers = version_info.get('headers', {})
+
+    door_pin_url = door_pin_info.get('url', '')
+    door_pin_headers = door_pin_info.get('headers', {})
+
+    # 调用 JS 验证逻辑
+    version_cookies = await get_waf_cookie(js_url, js_headers)
+
+    # 获取 built_ver 和 PHPSESSID
+    with httpx.Client() as client:
+        version_response = client.post(version_url, headers=version_headers, cookies=version_cookies)
+        version_response.raise_for_status()
+        version_data = version_response.json()
+
+        built_ver = str(version_data.get("built_ver"))
+        php_sess_id = version_response.cookies.get("PHPSESSID")
+
+        # 合并 cookie
+        door_cookies = {**version_cookies}
+        if php_sess_id:
+            door_cookies["PHPSESSID"] = php_sess_id
+
+    # 请求 door_pin 接口
+    with httpx.Client() as client:
+        body = f"version={built_ver}"
+        door_response = client.post(door_pin_url, headers=door_pin_headers, data=body, cookies=door_cookies)
+        door_response.raise_for_status()
+        return door_response.json()
+
+
+async def tem_fetch_door_pin_response(request_data: dict) -> dict:
+    tem_door_pin_info = request_data.get('temDoorPin', {})
+
+    tem_door_pin_url = tem_door_pin_info.get('url', '')
+    tem_door_pin_headers = tem_door_pin_info.get('headers', {})
+
+    with httpx.Client() as client:
+        tem_door_pin_response = client.post(tem_door_pin_url, headers=tem_door_pin_headers)
+        tem_door_pin_response.raise_for_status()
+        tem_door_pin_response_info = tem_door_pin_response.json()
+
+        converted_data = {
+            k: {
+                "password": v[0],
+                "updated": v[1].replace("-", "")  # 去除日期中的 "-"
+            }
+            for k, v in tem_door_pin_response_info["data"].items()
+        }
+
+        tem_door_pin_response_info["data"] = converted_data
+
+        return tem_door_pin_response_info
+
+
