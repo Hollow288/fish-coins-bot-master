@@ -1685,6 +1685,15 @@ def paste_cards_on_background(
         background.paste(card, (pos_x, start_y), card)
     return background
 
+
+def remove_transparency(im: Image.Image, bg_color=(0, 0, 0)) -> Image.Image:
+    if im.mode in ('RGBA', 'LA') or (im.mode == 'P' and 'transparency' in im.info):
+        background = Image.new("RGB", im.size, bg_color)
+        background.paste(im, mask=im.split()[-1])
+        return background
+    else:
+        return im.convert("RGB")
+
 def render_gacha_result(results: list[dict]) -> Image.Image:
 
     base_path = Path(__file__).parent.parent.parent / "screenshots" / "gacha-resources"
@@ -1782,4 +1791,4 @@ def render_gacha_result(results: list[dict]) -> Image.Image:
         fill=(255, 255, 255, 255)
     )
 
-    return result
+    return remove_transparency(result, bg_color=(0, 0, 0))

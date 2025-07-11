@@ -24,10 +24,6 @@ poke_me = on_notice(rule=Rule(is_poke_me))
 async def handle_poke_event(bot: Bot, event: PokeNotifyEvent):
     user_id = event.user_id
     group_id = event.group_id
-    logger.warning("=============bot================")
-    logger.warning(bot)
-    logger.warning(event)
-    logger.warning("=============bot end================")
 
     tz = pytz.timezone('Asia/Shanghai')
     utc8_time = datetime.now(tz)
@@ -43,7 +39,7 @@ async def handle_poke_event(bot: Bot, event: PokeNotifyEvent):
         greeting = "晚上好"
 
     # 发送回复消息
-    await bot.send_group_msg(group_id=group_id, message=f"执行者{greeting},@我并发送\"帮助\"获取指令菜单哦")
+    await bot.send_group_msg(group_id=group_id, message=f"授权者{greeting},@我并发送\"帮助\"获取指令菜单哦✨")
 
 
 
@@ -95,7 +91,7 @@ async def gacha_handle_function(bot: Bot, event: GroupMessageEvent, args: Messag
 
         if last_time and last_time.date() == now.date():
             # 如果是今天已经抽过了
-            await gacha.send(MessageSegment.at(user_id) + "今天已十连！")
+            await gacha.send(MessageSegment.at(user_id) + " 今天已经抽过了哦✨")
             return
 
 

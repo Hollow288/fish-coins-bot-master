@@ -17,7 +17,7 @@ def is_group_chat(event) -> bool:
 arms = on_command(
     "武器图鉴",
     rule= Rule(is_group_chat),  # 使用自定义规则
-    aliases={"武器"},
+    aliases={"武器信息"},
     priority=10,
     block=True,
 )

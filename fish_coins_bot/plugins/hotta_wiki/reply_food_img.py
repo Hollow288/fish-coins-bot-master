@@ -15,7 +15,7 @@ def is_group_chat(event) -> bool:
 food = on_command(
     "食物图鉴",
     rule= Rule(is_group_chat),  # 使用自定义规则
-    aliases={"食谱","食材图鉴","食材"},
+    aliases={"食谱","食材图鉴","食材","烹饪图鉴","食物"},
     priority=10,
     block=True,
 )
