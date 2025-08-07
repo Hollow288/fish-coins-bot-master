@@ -183,7 +183,7 @@ async def make_wiki_help(frequency:str = None):
         env.filters['the_font_bold'] = the_font_bold  # 注册过滤器
 
         async with async_playwright() as p:
-            browser = await p.firefox.launch(headless=True)
+            browser = await p.chromium.launch(headless=True)
             make_wiki_help_img_url(data)
 
             # 渲染 HTML
@@ -462,7 +462,7 @@ async def make_event_consultation_end_image(frequency:str = None):
         env.filters['tag_different_colors'] = tag_different_colors  # 注册过滤器
 
         async with async_playwright() as p:
-            browser = await p.firefox.launch(headless=True)
+            browser = await p.chromium.launch(headless=True)
             make_event_consultation_end_url(data)
 
             # 渲染 HTML

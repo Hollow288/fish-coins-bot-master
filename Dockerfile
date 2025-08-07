@@ -70,7 +70,7 @@ COPY pyproject.toml poetry.lock /app/
 RUN poetry install --no-root
 
 # 安装 Playwright 及其依赖的浏览器
-RUN poetry run python -m playwright install chromium firefox
+RUN poetry run python -m playwright install chromium
 
 # 暴露端口
 EXPOSE 5000
