@@ -19,9 +19,9 @@ from typing_extensions import Tuple
 from jinja2 import Environment, FileSystemLoader
 from datetime import datetime, timedelta
 
-from fish_coins_bot.database.hotta.event_consultation import EventConsultation
+from fish_coins_bot.database.hotta.event_news import EventNews
 from fish_coins_bot.utils.model_utils import the_font_bold,  make_wiki_help_img_url, days_diff_from_now, \
-    format_datetime_with_timezone, make_event_consultation_end_url, make_food_img_url, tag_different_colors, \
+    format_datetime_with_timezone, make_event_news_end_url, make_food_img_url, tag_different_colors, \
     delta_force_map_abbreviation, clean_keyword, get_waf_cookie, common_fetch_door_pin_response, \
     tem_fetch_door_pin_response
 
@@ -208,8 +208,8 @@ async def make_wiki_help(frequency:str = None):
 
     logger.success(f"wiki-help.png are created.")
 
-async def make_event_consultation():
-    logger.warning(f"event-consultation.png will be create.")
+async def make_event_news():
+    logger.warning(f"event-news.png will be create.")
 
     screenshot_dir = Path(__file__).parent.parent.parent / "screenshots" / "common"
     screenshot_dir.mkdir(exist_ok=True)
@@ -217,28 +217,28 @@ async def make_event_consultation():
     tz = pytz.timezone("Asia/Shanghai")
     current_time = datetime.now(tz)
 
-    are_info_list = await EventConsultation.filter(
+    are_info_list = await EventNews.filter(
         del_flag="0",
-        consultation_start__lte=current_time,
-        consultation_end__gte=current_time
-    ).order_by("consultation_end").limit(12).values(
-        "consultation_title",
-        "consultation_thumbnail_url",
-        "consultation_start",
-        "consultation_end"
+        news_start__lte=current_time,
+        news_end__gte=current_time
+    ).order_by("news_end").limit(12).values(
+        "news_title",
+        "news_thumbnail_url",
+        "news_start",
+        "news_end"
     )
 
-    will_info_list = await EventConsultation.filter(
+    will_info_list = await EventNews.filter(
         del_flag="0",
-        consultation_start__gt=current_time
-    ).order_by("consultation_start").limit(4).values(
-        "consultation_title",
-        "consultation_thumbnail_url",
-        "consultation_start",
-        "consultation_end"
+        news_start__gt=current_time
+    ).order_by("news_start").limit(4).values(
+        "news_title",
+        "news_thumbnail_url",
+        "news_start",
+        "news_end"
     )
 
-    background_path = "fish_coins_bot/img/event_consultation_background.png"
+    background_path = "fish_coins_bot/img/event_news_background.png"
     icon_path = "fish_coins_bot/img/icon-clock.png"
     font_path = "fish_coins_bot/fonts/ZCOOLKuaiLe-Regular.ttf"
     font_path_title = "fish_coins_bot/fonts/AlibabaPuHuiTi-3-55-Regular.otf"
@@ -309,9 +309,9 @@ async def make_event_consultation():
 
             event = are_info_list[index]
 
-            title_text = f">>> {event["consultation_title"]}"
-            start_time_text = f"开始时间: {format_datetime_with_timezone(event['consultation_start'])}"
-            end_time_text = f"结束时间: {format_datetime_with_timezone(event['consultation_end'])}"
+            title_text = f">>> {event["news_title"]}"
+            start_time_text = f"开始时间: {format_datetime_with_timezone(event['news_start'])}"
+            end_time_text = f"结束时间: {format_datetime_with_timezone(event['news_end'])}"
 
             draw.text((x_positions[i], y_position), title_text, font=font_title, fill="black")
             y_position_current = y_position + content_height
@@ -338,7 +338,7 @@ async def make_event_consultation():
                 icon_position[1] + icon_size[1] + icon_text_spacing - 20
             )
 
-            absolute_time = days_diff_from_now(event['consultation_end'])
+            absolute_time = days_diff_from_now(event['news_end'])
             text_color = "red" if absolute_time <= 3 else "black"
 
             draw.text(icon_text_position, f"{absolute_time}天", font=font_small, fill=text_color)
@@ -346,7 +346,7 @@ async def make_event_consultation():
             draw.text((x_positions[i], y_position_current + 5), end_time_text, font=font_small, fill=text_color)
             y_position_current += content_height + padding
 
-            image_url = event["consultation_thumbnail_url"]
+            image_url = event["news_thumbnail_url"]
             try:
                 activity_image = await fetch_image(image_url)
                 activity_image = activity_image.resize(image_size)
@@ -371,9 +371,9 @@ async def make_event_consultation():
 
             event = will_info_list[i]
 
-            title_text = f">>> {event["consultation_title"]}"
-            start_time_text = f"开始时间: {format_datetime_with_timezone(event['consultation_start'])}"
-            end_time_text = f"结束时间: {format_datetime_with_timezone(event['consultation_end'])}"
+            title_text = f">>> {event["news_title"]}"
+            start_time_text = f"开始时间: {format_datetime_with_timezone(event['news_start'])}"
+            end_time_text = f"结束时间: {format_datetime_with_timezone(event['news_end'])}"
 
             draw.text((x_positions[i], y_position), title_text, font=font_title, fill="black")
             y_position_current = y_position + content_height
@@ -393,7 +393,7 @@ async def make_event_consultation():
             )
             background_image.paste(icon, icon_position, mask=icon)
 
-            absolute_time = days_diff_from_now(event['consultation_start'])
+            absolute_time = days_diff_from_now(event['news_start'])
 
             # 在图标下方绘制 "X天"
             icon_text_position = (
@@ -406,7 +406,7 @@ async def make_event_consultation():
             y_position_current += content_height + padding
 
             #
-            image_url = event["consultation_thumbnail_url"]
+            image_url = event["news_thumbnail_url"]
             try:
                 activity_image = await fetch_image(image_url)
                 activity_image = activity_image.resize(image_size)
@@ -414,21 +414,21 @@ async def make_event_consultation():
             except Exception as e:
                 print(f"无法加载图片 {image_url}: {e}")
 
-    sanitized_name = 'event-consultation'  # 清理文件名
+    sanitized_name = 'event-news'  # 清理文件名
     screenshot_path = screenshot_dir / f"{sanitized_name}.png"
 
     background_image.save(screenshot_path)
 
-    logger.success(f"event-consultation.png are created.")
+    logger.success(f"event-news.png are created.")
 
 
-async def make_event_consultation_end_image(frequency:str = None):
-    logger.warning(f"event-consultation-end.png will be create.")
+async def make_event_news_end_image(frequency:str = None):
+    logger.warning(f"event-news-end.png will be create.")
 
     screenshot_dir = Path(__file__).parent.parent.parent / "screenshots" / "common"
     screenshot_dir.mkdir(exist_ok=True)
 
-    sanitized_name = 'event-consultation-end'  # 清理文件名
+    sanitized_name = 'event-news-end'  # 清理文件名
     screenshot_path = screenshot_dir / f"{sanitized_name}.png"
 
     if not screenshot_path.exists() or frequency is None:
@@ -436,24 +436,24 @@ async def make_event_consultation_end_image(frequency:str = None):
         tz = pytz.timezone("Asia/Shanghai")
         current_time = datetime.now(tz)
 
-        are_info_list = await EventConsultation.filter(
+        are_info_list = await EventNews.filter(
             del_flag="0",
-            consultation_start__lte=current_time,
-            consultation_end__gte=current_time
-        ).order_by("consultation_end").values(
-            "consultation_title",
-            "consultation_start",
-            "consultation_end",
-            "consultation_thumbnail_url",
-            "consultation_describe"
+            news_start__lte=current_time,
+            news_end__gte=current_time
+        ).order_by("news_end").values(
+            "news_title",
+            "news_start",
+            "news_end",
+            "news_thumbnail_url",
+            "news_describe"
         )
 
-        are_info_list = list(filter(lambda info: days_diff_from_now(info["consultation_end"]) <= 7, are_info_list))
+        are_info_list = list(filter(lambda info: days_diff_from_now(info["news_end"]) <= 7, are_info_list))
 
         for item in are_info_list:
-            if "consultation_end" in item:
-                item["day_num"] = days_diff_from_now(item["consultation_end"])
-                item["consultation_end"] = str(item["consultation_end"])[:16]
+            if "news_end" in item:
+                item["day_num"] = days_diff_from_now(item["news_end"])
+                item["news_end"] = str(item["news_end"])[:16]
 
         data = {"nuo_coins_task_type_list": are_info_list, "title_name": "即将结束的活动"}
 
@@ -463,10 +463,10 @@ async def make_event_consultation_end_image(frequency:str = None):
 
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
-            make_event_consultation_end_url(data)
+            make_event_news_end_url(data)
 
             # 渲染 HTML
-            template = env.get_template("template-event-consultation-end-plus.html")
+            template = env.get_template("template-event-news-end-plus.html")
             html_content = template.render(**data)
 
             # 创建新的页面
@@ -485,7 +485,7 @@ async def make_event_consultation_end_image(frequency:str = None):
 
             await browser.close()
 
-    logger.success(f"event-consultation-end.png are created.")
+    logger.success(f"event-news-end.png are created.")
 
 
 

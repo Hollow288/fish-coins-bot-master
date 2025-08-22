@@ -73,10 +73,10 @@ def make_wiki_help_img_url(wiki_help: dict):
     wiki_help["ZCOOLKuaiLe"] = FONT_HOST + "ZCOOLKuaiLe-Regular.ttf"
     wiki_help["default_background_url"] = BACKGROUND_HOST + "background-help.png"
 
-def make_event_consultation_end_url(event_consultation: dict):
-    event_consultation["AlibabaPuHuiTi"] = FONT_HOST + "AlibabaPuHuiTi-3-45-Light.otf"
-    event_consultation["ZCOOLKuaiLe"] = FONT_HOST + "ZCOOLKuaiLe-Regular.ttf"
-    event_consultation["logo_ht"] = MINIO_HOST + "logo_ht.png"
+def make_event_news_end_url(event_news: dict):
+    event_news["AlibabaPuHuiTi"] = FONT_HOST + "AlibabaPuHuiTi-3-45-Light.otf"
+    event_news["ZCOOLKuaiLe"] = FONT_HOST + "ZCOOLKuaiLe-Regular.ttf"
+    event_news["logo_ht"] = MINIO_HOST + "logo_ht.png"
 
 def make_food_img_url(food: object):
     food.AlibabaPuHuiTi = FONT_HOST + "AlibabaPuHuiTi-3-45-Light.otf"

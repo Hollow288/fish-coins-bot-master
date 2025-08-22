@@ -3,7 +3,7 @@ from nonebot.adapters.onebot.v11 import Adapter as ONEBOT_V11Adapter
 from fish_coins_bot.utils.startup_tasks import initialize_live_state
 from tortoise import Tortoise
 from fish_coins_bot.database import database_config
-from fish_coins_bot.utils.image_utils import make_wiki_help, make_event_consultation_end_image, make_event_consultation
+from fish_coins_bot.utils.image_utils import make_wiki_help, make_event_news_end_image, make_event_news
 
 # 初始化 NoneBot
 nonebot.init()
@@ -22,9 +22,9 @@ async def do_something():
     # 帮助
     await make_wiki_help(frequency="first")
     # 即将结束的活动
-    await make_event_consultation_end_image(frequency="first")
+    await make_event_news_end_image(frequency="first")
     # 活动资讯
-    await make_event_consultation()
+    await make_event_news()
     # 初始化开播状态
     await initialize_live_state()
 

@@ -163,12 +163,12 @@
 
         {% for item in nuo_coins_task_type_list %}
         <div class="event-card" style="width: 544px; transform: translate(0px);">
-            <div class="event-background" style="background-image: url('{{ item.consultation_thumbnail_url }}');"></div>
-            <div class="event-tag" style="{{ item.consultation_describe | tag_different_colors }}"></div>
+            <div class="event-background" style="background-image: url('{{ item.news_thumbnail_url }}');"></div>
+            <div class="event-tag" style="{{ item.news_describe | tag_different_colors }}"></div>
             <div class="event-content">
                 <div class="event-info">
-                    <span class="event-title">{{ item.consultation_title }}</span>
-                    <div class="event-text">{{ item.consultation_end }}</div>
+                    <span class="event-title">{{ item.news_title }}</span>
+                    <div class="event-text">{{ item.news_end }}</div>
                 </div>
                 <div class="event-end-time">剩余 {{ item.day_num }} 天</div>
             </div>
