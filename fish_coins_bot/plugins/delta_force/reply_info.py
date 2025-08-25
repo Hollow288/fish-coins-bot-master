@@ -33,28 +33,3 @@ async def reply_room_handle_function(args: Message = CommandArg()):
         buffer.seek(0)
         await reply_room.finish(MessageSegment.image(buffer))
 
-
-
-reply_produce = on_command(
-    "特勤处",
-    rule=Rule(is_group_chat),
-    aliases={"特勤处制作", "三角洲特勤处", "今天做什么", "三角洲特勤","鼠鼠行动做什么"},
-    priority=10,
-    block=True,
-)
-
-# @reply_produce.handle()
-async def reply_produce_handle_function(args: Message = CommandArg()):
-    """
-        废弃
-    """
-    produce_image = await make_delta_force_produce()
-    # 检查文件是否存在
-    if produce_image is None:
-        # 发送图片
-        await reply_room.finish("哇哦,出错了~")
-    else:
-        buffer = BytesIO()
-        produce_image.save(buffer, format="PNG")
-        buffer.seek(0)
-        await reply_produce.finish(MessageSegment.image(buffer))

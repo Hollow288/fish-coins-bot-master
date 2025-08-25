@@ -1,5 +1,4 @@
 import os
-from itertools import groupby
 import json
 import pytz
 from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageEnhance
@@ -7,10 +6,10 @@ import httpx
 import asyncio
 from io import BytesIO
 import io
-import time
 import random
 from typing import Optional
 
+from dotenv import load_dotenv
 from nonebot.log import logger
 from pathlib import Path
 from playwright.async_api import async_playwright
@@ -25,11 +24,10 @@ from fish_coins_bot.utils.model_utils import the_font_bold,  make_wiki_help_img_
     delta_force_map_abbreviation, clean_keyword, get_waf_cookie, common_fetch_door_pin_response, \
     tem_fetch_door_pin_response
 
-# 定义一个 asyncio.Lock，用于控制方法的执行
-lock = asyncio.Lock()
 
-# 全局变量，表示方法是否正在执行
-is_processing = False
+load_dotenv()
+
+MINIO_HOST = os.getenv("MINIO_HOST")
 
 
 # 获取网络图片
@@ -43,7 +41,10 @@ async def fetch_image(url: str):
             logger.error(f"Failed to fetch image. Status code: {response.status_code}")
 
 
-# 制作开播图
+
+
+# bili开播图======
+
 async def make_live_image(live_cover_url: str, live_avatar_url: str, live_name: str, live_address: str,
                           live_title: str):
 
@@ -166,6 +167,9 @@ async def make_live_image(live_cover_url: str, live_avatar_url: str, live_name: 
 
 
 
+
+# 帮助图======
+
 async def make_wiki_help(frequency:str = None):
     logger.warning(f"wiki-help.png will be create.")
 
@@ -208,6 +212,12 @@ async def make_wiki_help(frequency:str = None):
 
     logger.success(f"wiki-help.png are created.")
 
+
+
+
+
+# 活动资讯======
+
 async def make_event_news():
     logger.warning(f"event-news.png will be create.")
 
@@ -223,7 +233,7 @@ async def make_event_news():
         news_end__gte=current_time
     ).order_by("news_end").limit(12).values(
         "news_title",
-        "news_thumbnail_url",
+        "news_img_url",
         "news_start",
         "news_end"
     )
@@ -233,7 +243,7 @@ async def make_event_news():
         news_start__gt=current_time
     ).order_by("news_start").limit(4).values(
         "news_title",
-        "news_thumbnail_url",
+        "news_img_url",
         "news_start",
         "news_end"
     )
@@ -346,7 +356,7 @@ async def make_event_news():
             draw.text((x_positions[i], y_position_current + 5), end_time_text, font=font_small, fill=text_color)
             y_position_current += content_height + padding
 
-            image_url = event["news_thumbnail_url"]
+            image_url = MINIO_HOST + event["news_img_url"]
             try:
                 activity_image = await fetch_image(image_url)
                 activity_image = activity_image.resize(image_size)
@@ -406,7 +416,7 @@ async def make_event_news():
             y_position_current += content_height + padding
 
             #
-            image_url = event["news_thumbnail_url"]
+            image_url = MINIO_HOST + event["news_img_url"]
             try:
                 activity_image = await fetch_image(image_url)
                 activity_image = activity_image.resize(image_size)
@@ -421,6 +431,11 @@ async def make_event_news():
 
     logger.success(f"event-news.png are created.")
 
+
+
+
+
+# 即将结束的活动======
 
 async def make_event_news_end_image(frequency:str = None):
     logger.warning(f"event-news-end.png will be create.")
@@ -444,7 +459,7 @@ async def make_event_news_end_image(frequency:str = None):
             "news_title",
             "news_start",
             "news_end",
-            "news_thumbnail_url",
+            "news_img_url",
             "news_describe"
         )
 
@@ -454,6 +469,7 @@ async def make_event_news_end_image(frequency:str = None):
             if "news_end" in item:
                 item["day_num"] = days_diff_from_now(item["news_end"])
                 item["news_end"] = str(item["news_end"])[:16]
+                item["news_img_url"] = MINIO_HOST + item["news_img_url"]
 
         data = {"nuo_coins_task_type_list": are_info_list, "title_name": "即将结束的活动"}
 
@@ -488,6 +504,10 @@ async def make_event_news_end_image(frequency:str = None):
     logger.success(f"event-news-end.png are created.")
 
 
+
+
+
+# 粥密码======
 
 async def make_delta_force_room():
     # 读取 JSON 数据
@@ -579,175 +599,41 @@ async def make_delta_force_room():
         return None
 
 
-def create_rounded_rectangle_mask(size, radius):
-    """创建带有圆角的蒙版"""
-    w, h = size
-    mask = Image.new("L", (w, h), 0)  # 创建黑色蒙版（完全透明）
-    draw = ImageDraw.Draw(mask)
 
-    # 画一个圆角矩形
-    draw.rounded_rectangle((0, 0, w, h), radius=radius, fill=40)  # 255 = 完全不透明
 
-    return mask
 
-async def make_delta_force_produce():
-    # 读取 JSON 数据
-    with open(Path(__file__).parent.parent / 'plugins' / 'delta_force' / 'delta_force_request.json', 'r', encoding='utf-8') as f:
-        request_data = json.load(f)
-
-    FONT_PATH = "fish_coins_bot/fonts/字帮玩酷体.ttf"
-
-    version_request_info = request_data.get('getVersion', {})
-    door_pin_request_info = request_data.get('getProduce', {})
-
-    # 提取请求头和 URL
-    version_headers = version_request_info.get('headers', {})
-    version_url = version_request_info.get('url', '')
-
-    door_pin_headers = door_pin_request_info.get('headers', {})
-    door_pin_url = door_pin_request_info.get('url', '')
-
-    # 发送 HTTP 请求获取数据
-    with httpx.Client() as client:
-        version_response = client.post(version_url, headers=version_headers)
-        php_sess_id = version_response.cookies.get("PHPSESSID")
-        version_response_data = version_response.json()
-        built_ver = str(version_response_data["built_ver"])
-        door_pin_headers["Cookie"] += php_sess_id
-
-    with httpx.Client() as client:
-        request_data = "version=" + built_ver
-        door_pin_response = client.post(door_pin_url, headers=door_pin_headers, data=request_data)
-        response_data = door_pin_response.json()
-
-        # 存储每个 placeName 下 profit 最大的对象
-        place_max_profit = {}
-
-        for item in response_data['data']:
-            place = item["placeName"]
-            if place not in place_max_profit or item["profit"] > place_max_profit[place]["profit"]:
-                place_max_profit[place] = item
-
-        # 结果列表
-        result = list(place_max_profit.values())
-
-        if response_data['code'] == 1 and response_data['data']:
-            room_data = result
-
-            # 动态计算图片高度
-            base_width = 650
-            row_height = 60  # 每行的高度
-            title_height = 80  # 标题的高度
-            header_height = 50  # 表头的高度
-            padding = 20  # 边距
-            image_height = title_height + header_height + len(room_data) * row_height + padding * 2 + 40
-
-            # 创建图片
-            image = Image.new('RGB', (base_width, image_height), color=(245, 245, 245))
-
-            background_path = "fish_coins_bot/img/produce_background.png"
-            background_image = Image.open(background_path)
-            background_image = background_image.resize((base_width, image_height))  # 调整尺寸匹配新图片
-
-            image.paste(background_image, (0, 0))
-
-            draw = ImageDraw.Draw(image)
-
-            # 加载自定义字体
-            try:
-                font_title = ImageFont.truetype(FONT_PATH, 36)  # 标题字体
-                font_header = ImageFont.truetype(FONT_PATH, 28)  # 表头字体
-                font_text = ImageFont.truetype(FONT_PATH, 26)  # 正文字体
-            except IOError:
-                print("字体文件无法加载，改用默认字体")
-                font_title = ImageFont.load_default()
-                font_header = ImageFont.load_default()
-                font_text = ImageFont.load_default()
-
-            # 绘制标题
-            title_text = ""
-            title_bbox = draw.textbbox((0, 0), title_text, font=font_title)  # 获取文本边界
-            text_width = title_bbox[2] - title_bbox[0]
-            draw.text(((base_width - text_width) / 2, padding), title_text, fill=(0, 0, 0), font=font_title)
-
-            # 画分割线
-            line_y = padding + title_height - 10
-            # draw.line([(padding, line_y), (base_width - padding, line_y)], fill=(0, 0, 0), width=3)
-
-            # 表头
-            y_position = line_y + 40  # 表头起始位置
-            col_place = 50
-            col_item = 200
-            col_profit = 520
-            draw.text((col_place, y_position), "地点", fill=(0, 0, 0), font=font_header)
-            draw.text((col_item, y_position), "制作物", fill=(0, 0, 0), font=font_header)
-            draw.text((col_profit, y_position), "收益", fill=(0, 0, 0), font=font_header)
-
-            # 画分割线
-            y_position += header_height - 20
-            # draw.line([(padding, y_position), (base_width - padding, y_position)], fill=(0, 0, 0), width=2)
-
-            # 绘制房间信息
-            y_position += 20  # 数据起始行
-            for data in room_data:
-                place_name = data['placeName']
-                pic = data['pic']
-                item_name = data['itemName']
-                item_grade = data['itemGrade']
-                profit = str(data['profit']).split('.')[0]
-
-                # 下载图片
-                response = httpx.get(pic)
-                if response.status_code == 200:
-                    item_image = Image.open(BytesIO(response.content)).convert("RGBA")  # 确保是 RGBA 格式
-                    item_image = item_image.resize((30, 30))  # 调整大小
-
-                    # # 创建相同大小的透明蒙版
-                    # mask = item_image.split()[3]  # 提取 alpha 通道（透明度）
-                    #
-                    # # 贴图，保留透明度
-                    # image.paste(item_image, (col_pass - 40, y_position), mask)
-
-                    if item_grade == 5:
-                        bg_color = (250, 118, 0, 100)
-                    elif item_grade == 4:
-                        bg_color = (114, 86, 255, 100)
-                    elif item_grade == 3:
-                        bg_color = (36, 172, 242, 100)
-                    else:
-                        bg_color = (255, 255, 255, 0)
-
-                    bg_image = Image.new("RGBA", item_image.size, bg_color)
-
-                    # 2. 创建圆角蒙版
-                    rounded_mask = create_rounded_rectangle_mask(item_image.size, radius=5)  # 半径10像素的圆角
-
-                    # 3. 应用蒙版到背景，使背景变成圆角
-                    bg_image.putalpha(rounded_mask)
-
-                    # 4. 叠加原始图片，保留透明度
-                    combined = Image.alpha_composite(bg_image, item_image)
-
-                    # 5. 贴到主图上，保留透明效果
-                    image.paste(combined, (col_item, y_position), combined)
-
-                    # 绘制文本
-                draw.text((col_place, y_position), place_name, fill=(50, 50, 50), font=font_text)
-                draw.text((col_item + 40, y_position), item_name, fill=(50, 50, 50), font=font_text)
-                draw.text((col_profit , y_position), profit, fill=(50, 50, 50), font=font_text)
-
-                y_position += row_height
-
-            return image
-
-        else:
-            return None
-
+# 幻塔动态======
 
 async def random_delay(min_sec: float = 0.5, max_sec: float = 3.0):
     """随机延迟"""
     await asyncio.sleep(random.uniform(min_sec, max_sec))
 
+async def apply_stealth(page):
+    stealth_script = """
+        // 隐藏 webdriver
+        Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+
+        // 模拟 Chrome 对象
+        window.chrome = {
+            runtime: {},
+            // 其他属性可根据需要补充
+        };
+
+        // 修改语言
+        Object.defineProperty(navigator, 'languages', { get: () => ['zh-CN', 'zh', 'en'] });
+
+        // 模拟插件
+        Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
+
+        // 修改 permissions 查询（如通知权限）
+        const originalQuery = window.navigator.permissions.query;
+        window.navigator.permissions.query = (parameters) => (
+            parameters.name === 'notifications'
+                ? Promise.resolve({ state: Notification.permission })
+                : originalQuery(parameters)
+        );
+    """
+    await page.add_init_script(stealth_script)
 
 async def screenshot_first_dyn_by_keyword(
         url: str,
@@ -760,12 +646,7 @@ async def screenshot_first_dyn_by_keyword(
     viewport_height = random.choice([1080, 768, 900, 1050])
 
     # 用户代理
-    user_agents = [
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/115.0",
-        "Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Mobile/15E148 Safari/604.1"
-    ]
+    user_agents = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36"
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(
@@ -789,98 +670,34 @@ async def screenshot_first_dyn_by_keyword(
         )
         context = await browser.new_context(
             viewport={"width": viewport_width, "height": viewport_height},
-            user_agent=random.choice(user_agents),
+            user_agent=user_agents,
             locale="zh-CN",
             timezone_id="Asia/Shanghai",
             # 媒体和权限设置
             permissions=["geolocation"],
-            geolocation={"latitude": 39.9042, "longitude": 116.4074},  # 北京坐标
+            geolocation={"latitude": 39.3434, "longitude": 117.3616},
             color_scheme="light",
             # 随机HTTP头
             extra_http_headers={
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-                "Accept-Language": "zh-CN,zh;q=0.8,zh-TW;q=0.7,zh-HK;q=0.5,en-US;q=0.3,en;q=0.2",
-                "Accept-Encoding": "gzip, deflate, br",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+                "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+                "Accept-Encoding": "gzip, deflate, br, zstd",
                 "Referer": "https://www.bilibili.com/",
-                "DNT": str(random.randint(0, 1)),  # 随机决定是否发送Do Not Track头
-                "Upgrade-Insecure-Requests": "1"
+                "Upgrade-Insecure-Requests": "1",
+                "Sec-Fetch-Dest": "document",
+                "Sec-Fetch-Mode": "navigate",
+                "Sec-Fetch-Site": "none",
+                "Sec-Fetch-User": "?1",
+                "sec-ch-ua": '"Not;A=Brand";v="99", "Google Chrome";v="139", "Chromium";v="139"',
+                "sec-ch-ua-mobile": "?0",
+                "sec-ch-ua-platform": '"Windows"',
+                "DNT": "1"  # 建议固定
             }
         )
 
-        # 脚本
-        await context.add_init_script("""
-            // 覆盖webdriver属性
-            Object.defineProperty(navigator, 'webdriver', {
-                get: () => undefined
-            });
-
-            // 覆盖plugins属性
-            Object.defineProperty(navigator, 'plugins', {
-                get: () => [1, 2, 3, 4, 5],
-            });
-
-            // 覆盖languages属性
-            Object.defineProperty(navigator, 'languages', {
-                get: () => ['zh-CN', 'zh', 'en'],
-            });
-
-            // 修改chrome对象
-            window.chrome = {
-                app: {
-                    isInstalled: false,
-                },
-                webstore: {
-                    onInstallStageChanged: {},
-                    onDownloadProgress: {},
-                },
-                runtime: {
-                    PlatformOs: {
-                        MAC: 'mac',
-                        WIN: 'win',
-                        ANDROID: 'android',
-                        CROS: 'cros',
-                        LINUX: 'linux',
-                        OPENBSD: 'openbsd',
-                    },
-                    PlatformArch: {
-                        ARM: 'arm',
-                        X86_32: 'x86-32',
-                        X86_64: 'x86-64',
-                    },
-                    PlatformNaclArch: {
-                        ARM: 'arm',
-                        X86_32: 'x86-32',
-                        X86_64: 'x86-64',
-                    },
-                    RequestUpdateCheckStatus: {
-                        THROTTLED: 'throttled',
-                        NO_UPDATE: 'no_update',
-                        UPDATE_AVAILABLE: 'update_available',
-                    },
-                    OnInstalledReason: {
-                        INSTALL: 'install',
-                        UPDATE: 'update',
-                        CHROME_UPDATE: 'chrome_update',
-                        SHARED_MODULE_UPDATE: 'shared_module_update',
-                    },
-                    OnRestartRequiredReason: {
-                        APP_UPDATE: 'app_update',
-                        OS_UPDATE: 'os_update',
-                        PERIODIC: 'periodic',
-                    },
-                },
-            };
-
-            // 修改权限相关
-            const originalQuery = window.navigator.permissions.query;
-            window.navigator.permissions.query = (parameters) => (
-                parameters.name === 'notifications' ?
-                    Promise.resolve({ state: Notification.permission }) :
-                    originalQuery(parameters)
-            );
-        """)
-
         page = await context.new_page()
+
+        await apply_stealth(page)
 
         # 随机化导航行为
         await random_delay(1.0, 3.0)  # 打开页面前的随机延迟
@@ -952,6 +769,11 @@ async def screenshot_first_dyn_by_keyword(
         return image
 
 
+
+
+
+# 抽卡图片生成======
+
 def add_side_glow(
     base: Image.Image,
     glow_color=(255, 140, 0),
@@ -995,7 +817,6 @@ def add_side_glow(
     glow_layer = glow_layer.filter(ImageFilter.GaussianBlur(radius=radius // 3))
     base.alpha_composite(glow_layer)
     return base
-
 
 def paste_image(
     base: Image.Image,
@@ -1102,7 +923,6 @@ def paste_cards_on_background(
         pos_x = start_x + i * (card.width + gap)
         background.paste(card, (pos_x, start_y), card)
     return background
-
 
 def remove_transparency(im: Image.Image, bg_color=(0, 0, 0)) -> Image.Image:
     if im.mode in ('RGBA', 'LA') or (im.mode == 'P' and 'transparency' in im.info):

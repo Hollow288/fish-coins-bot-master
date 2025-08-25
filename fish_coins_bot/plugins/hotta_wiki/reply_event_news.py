@@ -10,7 +10,7 @@ from nonebot.adapters.onebot.v11 import MessageSegment
 from nonebot import get_bot,require
 from datetime import datetime
 
-from fish_coins_bot.database.hotta.event_news import EventConsultation
+from fish_coins_bot.database.hotta.event_news import EventNews
 from fish_coins_bot.utils.image_utils import make_event_news_end_image
 from fish_coins_bot.utils.model_utils import days_diff_from_now
 
@@ -51,7 +51,7 @@ async def event_news_end_scheduled():
     tz = pytz.timezone("Asia/Shanghai")
     current_time = datetime.now(tz)
 
-    are_info_list = await EventConsultation.filter(
+    are_info_list = await EventNews.filter(
         del_flag="0",
         news_start__lte=current_time,
         news_end__gte=current_time
