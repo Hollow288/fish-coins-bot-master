@@ -31,7 +31,7 @@ RUN apt-get update && \
     libasound2 \
     locales \
     libnss3 \
-    libatk-bridge2.0-0 \
+    libgdk-pixbuf-2.0-0 \
     libxss1 \
     && apt-get clean && \
     rm -rf /var/lib/apt/lists/*
