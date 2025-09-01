@@ -5,7 +5,7 @@ from nonebot.adapters import Message
 from nonebot.params import CommandArg
 from nonebot.adapters.onebot.v11 import MessageSegment
 from io import BytesIO
-from fish_coins_bot.utils.image_utils import make_delta_force_room, make_delta_force_produce
+from fish_coins_bot.utils.image_utils import make_delta_force_room
 
 
 def is_group_chat(event) -> bool:
