@@ -116,6 +116,7 @@ async def gacha_handle_function(bot: Bot, event: GroupMessageEvent, args: Messag
     ssr_list = gacha_config.get("banner", {}).get("SSR", [])
     sr_list = gacha_config.get("banner", {}).get("SR", [])
     r_list = gacha_config.get("banner", {}).get("R", [])
+    characters_config = gacha_config.get("characters_config", {})
 
     #记录基本属性,SR累计次数,中歪记录
     # 80SSR循环内累计次数
@@ -163,10 +164,16 @@ async def gacha_handle_function(bot: Bot, event: GroupMessageEvent, args: Messag
                     this_result = "歪"
 
                 last_two_ssr_up_results = update_last_two_results(last_two_ssr_up_results, this_result)
+
+            config = characters_config.get(character_name, characters_config.get("默认"))
             # 加入抽卡结果
             results.append({
                 "name": character_name,
-                "quality": "SSR"
+                "quality": "SSR",
+                "characters_x": config.get("characters_x"),
+                "characters_y": config.get("characters_y"),
+                "name_x": config.get("name_x"),
+                "name_y": config.get("name_y"),
             })
 
             ssr_gacha_count = 0  # 重置SSR累计次数
@@ -176,18 +183,30 @@ async def gacha_handle_function(bot: Bot, event: GroupMessageEvent, args: Messag
         elif rand < this_sr_probability + ssr_probability or sr_gacha_count >= 9:
             # 出 SR
             character_name = random.choice(sr_list)
+            config = characters_config.get(character_name, characters_config.get("默认"))
+            # 加入抽卡结果
             results.append({
                 "name": character_name,
-                "quality": "SR"
+                "quality": "SR",
+                "characters_x": config.get("characters_x"),
+                "characters_y": config.get("characters_y"),
+                "name_x": config.get("name_x"),
+                "name_y": config.get("name_y"),
             })
             sr_gacha_count = 0  # 重置SR累计次数
             ssr_gacha_count += 1
         else:
             # 出 R
             character_name = random.choice(r_list)
+            config = characters_config.get(character_name, characters_config.get("默认"))
+            # 加入抽卡结果
             results.append({
                 "name": character_name,
-                "quality": "R"
+                "quality": "R",
+                "characters_x": config.get("characters_x"),
+                "characters_y": config.get("characters_y"),
+                "name_x": config.get("name_x"),
+                "name_y": config.get("name_y"),
             })
             sr_gacha_count += 1
             ssr_gacha_count += 1

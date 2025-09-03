@@ -968,12 +968,12 @@ def render_gacha_result(results: list[dict]) -> Image.Image:
         # base_img = add_side_glow(base_img, glow_color=(180, 80, 255), radius=20, intensity=0.8, y_start=40, y_end=830)
         # base_img = add_side_glow(base_img, glow_color=(80, 180, 255), radius=20, intensity=0.8, y_start=40, y_end=830)
 
-        base_img = paste_image(base_img, base_path / "characters-img" / f"{name}.png", 0.6, -100, 60, 0.9,None)
+        base_img = paste_image(base_img, base_path / "characters-img" / f"{name}.png", 0.6, result['characters_x'], result['characters_y'], 0.9,None)
 
         base_img = paste_image(base_img, base_path / "common-img" / f"{quality}.png", 0.6, -10, 120,1,None)
 
         if quality != 'R':
-            base_img = paste_image(base_img, base_path / "characters-name" / f"{name}.png", 1, 10, 350,1,None)
+            base_img = paste_image(base_img, base_path / "characters-name" / f"{name}.png", 1, result['name_x'], result['name_y'],1,None)
 
         if name not in already_obtained:
             base_img = paste_image(base_img, base_path / "common-img" / "new_2.png", 0.8, 8, 125,1,None)
