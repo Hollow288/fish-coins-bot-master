@@ -8,6 +8,8 @@ from nonebot.params import CommandArg
 from pathlib import Path
 from nonebot.adapters.onebot.v11 import MessageSegment
 
+from fish_coins_bot.utils.model_utils import check_artifact_alias
+
 
 def is_group_chat(event) -> bool:
     return isinstance(event, GroupMessageEvent)
@@ -24,6 +26,7 @@ artifact = on_command(
 async def artifact_img_handle_function(args: Message = CommandArg()):
     #
     if artifact_name := args.extract_plain_text():
+        artifact_name = check_artifact_alias(artifact_name)
 
         image_path = Path("/app/screenshots/artifact") / f"{artifact_name}.png"
 

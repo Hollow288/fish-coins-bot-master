@@ -125,6 +125,27 @@ def check_willpower_alias(willpower_name:str):
     # 如果没有找到对应的别名，返回原始名称
     return willpower_name
 
+
+# 检查源器名称别名
+def check_artifact_alias(artifact_name:str):
+
+    # 读取 alias.json 文件
+    with open(Path(__file__).parent.parent / 'plugins' / 'hotta_wiki' / 'alias.json' , 'r', encoding='utf-8') as f:
+        alias_data = json.load(f)
+
+    # 获取源器的别名字典
+    artifact_aliases = alias_data.get('源器', {})
+
+    # 遍历每个源器的别名列表
+    for arti_name, aliases in artifact_aliases.items():
+        # 如果传入的名字在某个别名列表中
+        if artifact_name in aliases:
+            # 返回该源器的主名称（第一个名称作为主名称）
+            return arti_name
+
+    # 如果没有找到对应的别名，返回原始名称
+    return artifact_name
+
 # 格式化日期时间，只保留年月日时分
 def format_datetime_with_timezone(dt):
     tz = pytz.timezone("Asia/Shanghai")
