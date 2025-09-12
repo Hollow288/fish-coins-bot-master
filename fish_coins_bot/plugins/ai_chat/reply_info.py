@@ -4,7 +4,7 @@ from typing import Any, Coroutine
 import httpx
 from dotenv import load_dotenv
 from nonebot import  on_command
-from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent, PrivateMessageEvent
+from nonebot.adapters.onebot.v11 import Bot, PrivateMessageEvent
 from nonebot.rule import Rule, to_me
 from nonebot.adapters import Message
 from nonebot.params import CommandArg
@@ -59,7 +59,7 @@ async def call_api(message: str, user_id: str, retries: int = 3) -> Any | None:
 
 
 @reply_chat.handle()
-async def reply_chat_handle(bot: Bot, event: GroupMessageEvent, args: Message = CommandArg()):
+async def reply_chat_handle(bot: Bot, event: PrivateMessageEvent, args: Message = CommandArg()):
     user_id = str(event.sender.user_id)
 
     logger.warning("==user_id==" + user_id + "====")
