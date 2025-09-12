@@ -4,7 +4,7 @@ from typing import Any, Coroutine
 import httpx
 from dotenv import load_dotenv
 from nonebot import  on_command
-from nonebot.adapters.onebot.v11 import Bot, PrivateMessageEvent
+from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent, PrivateMessageEvent
 from nonebot.rule import Rule, to_me
 from nonebot.adapters import Message
 from nonebot.params import CommandArg
@@ -33,28 +33,28 @@ async def call_api(message: str, user_id: str, retries: int = 3) -> Any | None:
     调用 API，如果失败重试最多 retries 次。
     返回最终成功的 message，否则返回 None。
     """
-    headers = {
-        "X-API-KEY": API_KEY,
-        "Content-Type": "application/x-www-form-urlencoded"
-    }
-
-    payload = {
-        "message": message,
-        "memoryId": user_id
-    }
-
     async with httpx.AsyncClient(timeout=70) as client:
         for attempt in range(retries):
             try:
-                response = await client.post(API_HOST, json=payload, headers=headers)
+                response = await client.post(
+                    API_HOST,
+                    data={
+                        "message": message,
+                        "memoryId": user_id
+                    },
+                    headers={
+                        "X-API-KEY": API_KEY,
+                        "Content-Type": "application/x-www-form-urlencoded"
+                    }
+                )
                 data = response.json()
-                logger.warning("AICHAT返回：" + data)
                 # 检查返回格式
                 if data.get("code") == 200 and "data" in data and data["data"].get("message"):
                     return data["data"]["message"]
             except Exception as e:
                 # 这里可以打印日志或记录错误
                 logger.error(f"尝试第 {attempt+1} 次失败: {e}")
+                logger.error(f"解析 JSON 出错 response: {response.text}")
     return None
 
 
@@ -62,12 +62,8 @@ async def call_api(message: str, user_id: str, retries: int = 3) -> Any | None:
 async def reply_chat_handle(bot: Bot, event: PrivateMessageEvent, args: Message = CommandArg()):
     user_id = str(event.sender.user_id)
 
-    logger.warning("==user_id==" + user_id + "====")
-    logger.warning("==ADMIN_ID==" + ADMIN_ID + "====")
-    logger.warning("==ADMIN_ID==" + ADMIN_ID + "====")
 
     if str(user_id) == str(ADMIN_ID):
-        logger.warning("====进来了====")
         if message := args.extract_plain_text():
             result = await call_api(message, user_id)
             if result:
