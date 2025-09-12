@@ -8,6 +8,7 @@ from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent, PrivateMessageEv
 from nonebot.rule import Rule, to_me
 from nonebot.adapters import Message
 from nonebot.params import CommandArg
+from nonebot.log import logger
 
 def is_private_chat(event) -> bool:
     return isinstance(event, PrivateMessageEvent)
@@ -47,12 +48,13 @@ async def call_api(message: str, user_id: str, retries: int = 3) -> Any | None:
             try:
                 response = await client.post(API_HOST, json=payload, headers=headers)
                 data = response.json()
+                logger.warning("AICHAT返回：" + data)
                 # 检查返回格式
                 if data.get("code") == 200 and "data" in data and data["data"].get("message"):
                     return data["data"]["message"]
             except Exception as e:
                 # 这里可以打印日志或记录错误
-                print(f"尝试第 {attempt+1} 次失败: {e}")
+                logger.error(f"尝试第 {attempt+1} 次失败: {e}")
     return None
 
 
@@ -60,7 +62,12 @@ async def call_api(message: str, user_id: str, retries: int = 3) -> Any | None:
 async def reply_chat_handle(bot: Bot, event: GroupMessageEvent, args: Message = CommandArg()):
     user_id = str(event.sender.user_id)
 
-    if user_id == ADMIN_ID:
+    logger.warning("==user_id==" + user_id + "====")
+    logger.warning("==ADMIN_ID==" + ADMIN_ID + "====")
+    logger.warning("==ADMIN_ID==" + ADMIN_ID + "====")
+
+    if str(user_id) == str(ADMIN_ID):
+        logger.warning("====进来了====")
         if message := args.extract_plain_text():
             result = await call_api(message, user_id)
             if result:
