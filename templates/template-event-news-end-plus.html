@@ -15,23 +15,34 @@
             font-family: 'AlibabaPuHuiTi-3-45-Light', serif;
             display: flex;
             justify-content: center;
-            align-items: center;
-            height: 100vh;
+            align-items: flex-start; /* 改成顶部对齐，避免被居中 */
+            min-height: 100vh;
             margin: 0;
+            background: linear-gradient(45deg, #e0c3fc, #8ec5fc);
+        }
+
+        .calendar-wrapper {
+            width: 1200px;
+            display: flex;
+            align-items: flex-start; /* ✅ 顶部对齐 */
+            justify-content: center;
+            padding: 30px 0;
+            flex-wrap: wrap;
         }
 
         .calendar-container {
             width: 1064px;
             background-color: rgba(255, 255, 255, .8);
             position: relative;
-            padding-bottom: 2px;
+            padding: 20px; /* ✅ 让内容有呼吸感 */
             border-radius: 20px;
             box-shadow: 0 0 36px rgba(0, 0, 0, .3);
+            overflow: hidden; /* ✅ 避免内部元素溢出 */
         }
 
         .calendar-header {
             display: flex;
-            background-color: rgb(255 255 255 / 0%);
+            background-color: transparent;
             position: relative;
             border-radius: 20px 20px 0 0;
             overflow: hidden;
@@ -43,16 +54,11 @@
         }
 
         .event-card {
-            width: 1088px;
-        }
-
-
-        .event-card {
+            width: 100%; /* ✅ 自适应容器宽度 */
+            margin: 0 auto 30px;
             height: 110px;
             background-color: rgba(255, 255, 255, .75);
             position: relative;
-            left: -12px;
-            margin-bottom: 30px;
             cursor: pointer;
             display: block;
             box-shadow: 8px 8px 8px rgba(35, 35, 35, .2);
@@ -133,24 +139,13 @@
         .event-end-time::after {
             position: absolute;
             top: 0;
-            right: -30px;
+            right: -29px;
             content: '';
             width: 0;
             height: 0;
             border-style: solid;
             border-width: 46px 30px 0 0;
             border-color: rgba(0, 0, 0, .5) transparent transparent transparent;
-        }
-
-        .calendar-wrapper {
-            width: 1200px;
-            background: linear-gradient(45deg, #e0c3fc, #8ec5fc);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding-bottom: 30px;
-            padding-top: 30px;
-            flex-wrap: wrap;
         }
 
     </style>
@@ -162,7 +157,7 @@
         <div class="calendar-header">即将结束的活动</div>
 
         {% for item in nuo_coins_task_type_list %}
-            <div class="event-card" style="transform: translate(0px);">
+            <div class="event-card">
                 <div class="event-background" style="background-image: url('{{ item.news_img_url }}');"></div>
                 <div class="event-tag" style="{{ item.news_describe | tag_different_colors }}"></div>
                 <div class="event-content">
