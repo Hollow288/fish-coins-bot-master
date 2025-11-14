@@ -111,7 +111,7 @@ async def call_image_api(message: str, user_id: str,img_base64: str,mime_type :s
                 )
                 data = response.json()
                 # 检查返回格式
-                if data.get("code") == 200 and "data" in data and data["data"].get("message"):
+                if data.get("code") == 200 and "data" in data and data["data"].get("data"):
                     return data["data"]["data"]
             except Exception as e:
                 # 这里可以打印日志或记录错误
