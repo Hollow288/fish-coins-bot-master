@@ -1,3 +1,4 @@
+import base64
 import os
 import json
 import pytz
@@ -8,6 +9,7 @@ from io import BytesIO
 import io
 import random
 from typing import Optional
+import mimetypes
 
 from dotenv import load_dotenv
 from nonebot.log import logger
@@ -1030,3 +1032,34 @@ def render_gacha_result(results: list[dict]) -> Image.Image:
     )
 
     return remove_transparency(result, bg_color=(0, 0, 0))
+
+
+async def get_first_image_base64_and_mime(event):
+
+    # 找到第一张图片
+    first_img_url = None
+    for seg in event.message:
+        if seg.type == "image":
+            first_img_url = seg.data.get("url")
+            break
+
+    if not first_img_url:
+        return "", ""
+
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(first_img_url)
+            resp.raise_for_status()
+            img_bytes = resp.content
+
+            # 转 Base64
+            img_base64 = base64.b64encode(img_bytes).decode("utf-8")
+
+            # 用 mimetypes 根据 URL 推测 MIME 类型
+            mime_type, _ = mimetypes.guess_type(first_img_url)
+            if not mime_type:
+                mime_type = "application/octet-stream"
+
+            return img_base64, mime_type
+    except Exception as e:
+        return "", ""
