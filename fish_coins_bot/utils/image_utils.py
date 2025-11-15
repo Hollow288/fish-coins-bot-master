@@ -1035,7 +1035,6 @@ def render_gacha_result(results: list[dict]) -> Image.Image:
 
 
 async def get_first_image_base64_and_mime(event):
-
     # 找到第一张图片
     first_img_url = None
     for seg in event.message:
@@ -1055,11 +1054,18 @@ async def get_first_image_base64_and_mime(event):
             # 转 Base64
             img_base64 = base64.b64encode(img_bytes).decode("utf-8")
 
-            # 用 mimetypes 根据 URL 推测 MIME 类型
-            mime_type, _ = mimetypes.guess_type(first_img_url)
+            # 优先使用响应头的 Content-Type
+            mime_type = resp.headers.get("Content-Type")
+
+            # 如果没有，再用 URL 猜测
+            if not mime_type:
+                mime_type, _ = mimetypes.guess_type(first_img_url)
+
+            # 如果仍然没有，使用默认
             if not mime_type:
                 mime_type = "application/octet-stream"
 
             return img_base64, mime_type
-    except Exception as e:
+
+    except Exception:
         return "", ""

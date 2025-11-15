@@ -137,7 +137,7 @@ async def reply_image_handle(bot: Bot, event: PrivateMessageEvent, args: Message
             result = await call_image_api(message, user_id, img_base64, mime_type)
             logger.info(f"图片指令消息result: {result}")
             if result:
-                await reply_image.send(MessageSegment.image(f"base64://{img_base64}"))
+                await reply_image.send(MessageSegment.image(f"base64://{result}"))
             else:
                 await reply_image.send("接口请求失败，请稍后再试。")
         else:
