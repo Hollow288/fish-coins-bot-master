@@ -46,7 +46,7 @@ async def dynamics_push():
             exists = await DynamicsHistory.exists(uid=uid, id_str=id_str)
             if not exists:
 
-                pub_ts = item['modules']['module_author']['pub_ts']
+                pub_ts = int(item['modules']['module_author']['pub_ts'])
                 now_ts = int(time.time())  # 当前时间戳（秒）
                 if now_ts - pub_ts >= 2 * 60 * 60:  # 2 小时 = 7200 秒
                     await DynamicsHistory.create(
