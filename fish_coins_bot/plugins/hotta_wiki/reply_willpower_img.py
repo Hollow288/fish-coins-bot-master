@@ -33,7 +33,7 @@ async def willpower_img_handle_function(args: Message = CommandArg()):
             # 发送图片
             image_message = MessageSegment.image(f"file://{image_path}")
             await willpower.finish(image_message)
-        else:
-            await willpower.finish(f"没有找到意志名为 `{willpower_name}` 的图鉴,快联系作者催他收录吧~")
-    else:
-        await willpower.finish("指令错误,例如: 意志图鉴 烈烈红莲")
+        # else:
+        #     await willpower.finish(f"没有找到意志名为 `{willpower_name}` 的图鉴,快联系作者催他收录吧~")
+    # else:
+    #     await willpower.finish("指令错误,例如: 意志图鉴 烈烈红莲")

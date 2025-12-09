@@ -32,7 +32,7 @@ async def fashion_img_handle_function(args: Message = CommandArg()):
             # 发送图片
             image_message = MessageSegment.image(f"file://{image_path}")
             await fashion.finish(image_message)
-        else:
-            await fashion.finish(f"没有找到时装名为 `{fashion_name}` 的图鉴,快联系作者催他收录吧~")
-    else:
-        await fashion.finish("指令错误,例如: 时装图鉴 锦龙吟")
+        # else:
+            # await fashion.finish(f"没有找到时装名为 `{fashion_name}` 的图鉴,快联系作者催他收录吧~")
+    # else:
+    #     await fashion.finish("指令错误,例如: 时装图鉴 锦龙吟")

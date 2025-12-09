@@ -35,7 +35,7 @@ async def artifact_img_handle_function(args: Message = CommandArg()):
             # 发送图片
             image_message = MessageSegment.image(f"file://{image_path}")
             await artifact.finish(image_message)
-        else:
-            await artifact.finish(f"没有找到源器名为 `{artifact_name}` 的图鉴,快联系作者催他收录吧~")
-    else:
-        await artifact.finish("指令错误,例如: 源器图鉴 阻断装置")
+        # else:
+        #     await artifact.finish(f"没有找到源器名为 `{artifact_name}` 的图鉴,快联系作者催他收录吧~")
+    # else:
+    #     await artifact.finish("指令错误,例如: 源器图鉴 阻断装置")

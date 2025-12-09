@@ -35,7 +35,7 @@ async def arms_attack_img_handle_function(args: Message = CommandArg()):
             # 发送图片
             image_message = MessageSegment.image(f"file://{image_path}")
             await arms_attack.finish(image_message)
-        else:
-            await arms_attack.finish(f"没有找到武器名为 `{arms_attack_name}` 的详情图鉴,快联系作者催他收录吧~")
-    else:
-        await arms_attack.finish("指令错误,例如: 武器详情 静澜")
+        # else:
+            # await arms_attack.finish(f"没有找到武器名为 `{arms_attack_name}` 的详情图鉴,快联系作者催他收录吧~")
+    # else:
+        # await arms_attack.finish("指令错误,例如: 武器详情 静澜")

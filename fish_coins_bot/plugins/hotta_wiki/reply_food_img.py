@@ -32,7 +32,7 @@ async def food_img_handle_function(args: Message = CommandArg()):
             # 发送图片
             image_message = MessageSegment.image(f"file://{image_path}")
             await food.finish(image_message)
-        else:
-            await food.finish(f"没有找到食物名为 `{food_name}` 的图鉴,快联系作者催他收录吧~")
-    else:
-        await food.finish("指令错误,例如: 食物图鉴 滋滋烤肉")
+        # else:
+        #     await food.finish(f"没有找到食物名为 `{food_name}` 的图鉴,快联系作者催他收录吧~")
+    # else:
+    #     await food.finish("指令错误,例如: 食物图鉴 滋滋烤肉")

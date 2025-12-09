@@ -2,6 +2,7 @@ from nonebot import on_notice, on_command
 from nonebot.adapters.onebot.v11 import Bot, Event, PokeNotifyEvent, GroupMessageEvent
 from nonebot.rule import Rule, to_me
 from nonebot.log import logger
+from nonebot import on_message
 from nonebot.adapters import Message
 from nonebot.params import CommandArg
 from pathlib import Path
@@ -237,8 +238,24 @@ async def gacha_handle_function(bot: Bot, event: GroupMessageEvent, args: Messag
     )
 
 
+# 1. 定义规则：检查这是否是一条回复，且是否回复了机器人自己
+async def check_reply_to_me(bot: Bot, event: GroupMessageEvent) -> bool:
+    # event.reply 存在说明是回复消息
+    if event.reply:
+        # 比较被回复人的 ID 是否等于机器人的 ID
+        # 注意：bot.self_id 通常是字符串，event.reply.sender.user_id 是整数，需要转换
+        return event.reply.sender.user_id == int(bot.self_id)
+    return False
 
 
+# 2. 注册响应器
+# priority 设置低一点，避免阻挡其他命令
+reply_handler_help = on_message(rule=Rule(check_reply_to_me), priority=10, block=True)
+
+
+@reply_handler_help.handle()
+async def handle_reply_help(bot: Bot, event: GroupMessageEvent):
+    await reply_handler_help.finish(f"不懂喵,@我并发送\"帮助\"获取指令菜单喵✨")
 
 
 
