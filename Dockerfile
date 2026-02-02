@@ -10,6 +10,7 @@ RUN apt-get update && \
     build-essential \
     libpq-dev \
     curl \
+    ffmpeg \
     # Playwright 运行所需库
     xorg \
     xvfb \
@@ -65,6 +66,7 @@ ENV LC_ALL=zh_CN.UTF-8
 COPY pyproject.toml poetry.lock /app/
 
 # 安装项目依赖
+# 【提醒】请确保 pyproject.toml 里已经添加了 yt-dlp 和 minio (poetry add yt-dlp minio)
 RUN poetry install --no-root
 
 # 安装 Playwright 及其浏览器
