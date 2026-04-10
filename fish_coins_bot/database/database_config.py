@@ -25,7 +25,8 @@ TORTOISE_ORM = {
                 "fish_coins_bot.database.bilibili.live.models",
                 "fish_coins_bot.database.bilibili.dynamics.models",
                 "fish_coins_bot.database.hotta.event_news",
-                "fish_coins_bot.database.hotta.gacha_record"
+                "fish_coins_bot.database.hotta.gacha_record",
+                "fish_coins_bot.plugins.persona_mirror.models",
             ],
             "default_connection": "default",
         },
