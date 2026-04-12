@@ -12,6 +12,16 @@ _GROUP_MESSAGE_CACHE: dict[str, deque[dict[str, Any]]] = defaultdict(
 )
 
 
+def _get_cached_messages(
+    group_id: str | int,
+    exclude_message_id: str | None = None,
+) -> list[dict[str, Any]]:
+    cached = list(_GROUP_MESSAGE_CACHE.get(str(group_id), []))
+    if exclude_message_id is None:
+        return cached
+    return [item for item in cached if item["message_id"] != str(exclude_message_id)]
+
+
 def _safe_sender_name(event: GroupMessageEvent) -> str:
     return event.sender.card or event.sender.nickname or str(event.user_id)
 
@@ -54,9 +64,13 @@ def record_group_message_context(event: GroupMessageEvent) -> None:
     )
 
 
-def get_recent_context_texts(group_id: str | int, limit: int = 3) -> list[str]:
+def get_recent_context_texts(
+    group_id: str | int,
+    limit: int = 3,
+    exclude_message_id: str | None = None,
+) -> list[str]:
     """获取最近几条群消息的纯文本，用于给 collector 存发言前上下文。"""
-    cached = list(_GROUP_MESSAGE_CACHE.get(str(group_id), []))
+    cached = _get_cached_messages(group_id, exclude_message_id=exclude_message_id)
     recent = cached[-limit:]
     return [
         f"{item['sender_name']}: {item['rendered_text']}"
@@ -65,9 +79,13 @@ def get_recent_context_texts(group_id: str | int, limit: int = 3) -> list[str]:
     ]
 
 
-def get_recent_context_structured(group_id: str | int, limit: int = 5) -> list[dict[str, str]]:
+def get_recent_context_structured(
+    group_id: str | int,
+    limit: int = 5,
+    exclude_message_id: str | None = None,
+) -> list[dict[str, str]]:
     """获取最近几条群消息的结构化数据，用于给 collector 存发言前上下文。"""
-    cached = list(_GROUP_MESSAGE_CACHE.get(str(group_id), []))
+    cached = _get_cached_messages(group_id, exclude_message_id=exclude_message_id)
     recent = cached[-limit:]
     return [
         {
@@ -85,9 +103,10 @@ def check_target_mentioned_recently(
     target_user_id: str,
     target_aliases: list[str],
     lookback: int = 3,
+    exclude_message_id: str | None = None,
 ) -> tuple[bool, bool]:
     """检查目标最近是否被 @ 或被提到名字。返回 (was_at, was_mentioned_by_name)。"""
-    cached = list(_GROUP_MESSAGE_CACHE.get(str(group_id), []))
+    cached = _get_cached_messages(group_id, exclude_message_id=exclude_message_id)
     recent = cached[-lookback:]
     alias_set = {a for a in target_aliases if a}
 
@@ -108,9 +127,13 @@ def check_target_mentioned_recently(
     return was_at, was_mentioned
 
 
-def is_last_message_from_user(group_id: str | int, user_id: str) -> bool:
+def is_last_message_from_user(
+    group_id: str | int,
+    user_id: str,
+    exclude_message_id: str | None = None,
+) -> bool:
     """判断该群最后一条缓存消息是否来自指定用户（用于检测连续发言）。"""
-    cached = list(_GROUP_MESSAGE_CACHE.get(str(group_id), []))
+    cached = _get_cached_messages(group_id, exclude_message_id=exclude_message_id)
     if not cached:
         return False
     return cached[-1]["user_id"] == str(user_id)
@@ -125,10 +148,7 @@ def get_recent_group_context(
 ) -> list[dict[str, Any]]:
     config = get_plugin_config()
     effective_limit = limit or config.recent_context_size
-    cached_messages = list(_GROUP_MESSAGE_CACHE.get(str(group_id), []))
-
-    if exclude_message_id is not None:
-        cached_messages = [item for item in cached_messages if item["message_id"] != str(exclude_message_id)]
+    cached_messages = _get_cached_messages(group_id, exclude_message_id=exclude_message_id)
 
     cached_messages = cached_messages[-effective_limit:]
     alias_set = {alias for alias in target_aliases if alias}

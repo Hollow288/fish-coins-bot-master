@@ -27,6 +27,7 @@ def _classify_scene(
     event: GroupMessageEvent,
     target: PersonaTarget,
     is_continuation: bool,
+    exclude_message_id: str | None = None,
 ) -> str:
     """根据上下文推断目标这条消息的场景类型。"""
     if is_continuation:
@@ -38,7 +39,10 @@ def _classify_scene(
     group_id = str(event.group_id)
     target_aliases = get_effective_trigger_keywords(target)
     was_at, was_mentioned = check_target_mentioned_recently(
-        group_id, target.target_user_id, target_aliases,
+        group_id,
+        target.target_user_id,
+        target_aliases,
+        exclude_message_id=exclude_message_id,
     )
     if was_at:
         return "被@后回应"
@@ -88,12 +92,21 @@ async def collect_message_event(event: GroupMessageEvent | PrivateMessageEvent) 
 
     if isinstance(event, GroupMessageEvent):
         group_id = str(event.group_id)
+        current_message_id = str(event.message_id)
 
-        # 结构化上下文
-        context_json = get_recent_context_structured(group_id, limit=5)
+        # 当前消息已提前写入缓存，采集时要显式排除自己，避免把自己当成发言前上下文。
+        context_json = get_recent_context_structured(
+            group_id,
+            limit=5,
+            exclude_message_id=current_message_id,
+        )
 
-        # 连续发言检测
-        is_continuation = is_last_message_from_user(group_id, target_user_id)
+        # 连续发言检测也要排除当前消息本身，只看它之前的最后一条消息。
+        is_continuation = is_last_message_from_user(
+            group_id,
+            target_user_id,
+            exclude_message_id=current_message_id,
+        )
 
         # 回复信息提取
         reply = getattr(event, "reply", None)
@@ -102,7 +115,12 @@ async def collect_message_event(event: GroupMessageEvent | PrivateMessageEvent) 
             reply_to_user_name = _safe_reply_sender_name(reply)
 
         # 场景分类
-        scene_type = _classify_scene(event, target, is_continuation)
+        scene_type = _classify_scene(
+            event,
+            target,
+            is_continuation,
+            exclude_message_id=current_message_id,
+        )
 
     feature_json = build_feature_json(raw_segments, plain_text)
     chat_type = "group" if isinstance(event, GroupMessageEvent) else "private"
