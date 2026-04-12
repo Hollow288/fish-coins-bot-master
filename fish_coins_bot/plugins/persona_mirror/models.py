@@ -87,8 +87,8 @@ class PersonaProfileSnapshot(Model):
     start_message_id = fields.IntField(default=0, description="起始消息ID")
     end_message_id = fields.IntField(default=0, description="结束消息ID")
     summary_json = fields.JSONField(default=dict, description="本次画像JSON")
-    prompt_text = fields.TextField(null=True, description="总结时使用的提示词")
-    raw_response = fields.TextField(null=True, description="AI原始返回")
+    prompt_text = fields.TextField(null=True, description="总结时使用的提示词", db_field_type="LONGTEXT")
+    raw_response = fields.TextField(null=True, description="AI原始返回", db_field_type="LONGTEXT")
     created_at = fields.DatetimeField(auto_now_add=True, description="创建时间")
 
     class Meta:
