@@ -6,8 +6,46 @@ from ..utils import (
     datetime_from_timestamp,
     message_segments_to_list,
     normalize_text,
+    render_segments_as_text,
 )
-from .context_service import get_recent_context_texts
+from .context_service import (
+    check_target_mentioned_recently,
+    get_recent_context_structured,
+    is_last_message_from_user,
+)
+from .persona_service import get_effective_trigger_keywords
+
+
+def _safe_reply_sender_name(reply) -> str:
+    if not reply or not getattr(reply, "sender", None):
+        return ""
+    sender = reply.sender
+    return getattr(sender, "card", "") or getattr(sender, "nickname", "") or str(getattr(sender, "user_id", ""))
+
+
+def _classify_scene(
+    event: GroupMessageEvent,
+    target: PersonaTarget,
+    is_continuation: bool,
+) -> str:
+    """根据上下文推断目标这条消息的场景类型。"""
+    if is_continuation:
+        return "连续发言"
+
+    if getattr(event, "reply", None):
+        return "回复他人"
+
+    group_id = str(event.group_id)
+    target_aliases = get_effective_trigger_keywords(target)
+    was_at, was_mentioned = check_target_mentioned_recently(
+        group_id, target.target_user_id, target_aliases,
+    )
+    if was_at:
+        return "被@后回应"
+    if was_mentioned:
+        return "被提及后回应"
+
+    return "主动发言"
 
 
 async def _upsert_face_asset(target_user_id: str, message_ref_id: int, face_id: str) -> None:
@@ -42,25 +80,49 @@ async def collect_message_event(event: GroupMessageEvent | PrivateMessageEvent) 
     plain_text = event.get_plaintext().strip()
     normalized_text = normalize_text(plain_text)
 
-    # 在存特征前，先抓取目标发言前的群聊上下文
-    context_before: list[str] | None = None
-    if isinstance(event, GroupMessageEvent):
-        context_before = get_recent_context_texts(str(event.group_id), limit=3)
+    context_json: list[dict] = []
+    scene_type = "主动发言"
+    reply_to_text: str | None = None
+    reply_to_user_name: str | None = None
+    is_continuation = False
 
-    feature_json = build_feature_json(raw_segments, plain_text, context_before=context_before)
+    if isinstance(event, GroupMessageEvent):
+        group_id = str(event.group_id)
+
+        # 结构化上下文
+        context_json = get_recent_context_structured(group_id, limit=5)
+
+        # 连续发言检测
+        is_continuation = is_last_message_from_user(group_id, target_user_id)
+
+        # 回复信息提取
+        reply = getattr(event, "reply", None)
+        if reply and getattr(reply, "message", None):
+            reply_to_text = render_segments_as_text(message_segments_to_list(reply.message))
+            reply_to_user_name = _safe_reply_sender_name(reply)
+
+        # 场景分类
+        scene_type = _classify_scene(event, target, is_continuation)
+
+    feature_json = build_feature_json(raw_segments, plain_text)
     chat_type = "group" if isinstance(event, GroupMessageEvent) else "private"
-    group_id = str(event.group_id) if isinstance(event, GroupMessageEvent) else None
+    group_id_val = str(event.group_id) if isinstance(event, GroupMessageEvent) else None
     message_time = datetime_from_timestamp(getattr(event, "time", None))
 
     message_record = await PersonaMessage.create(
         target_user_id=target_user_id,
-        group_id=group_id,
+        group_id=group_id_val,
         chat_type=chat_type,
         platform_message_id=str(event.message_id),
         plain_text=plain_text or None,
         normalized_text=normalized_text or None,
         raw_segments_json=raw_segments,
         feature_json=feature_json,
+        scene_type=scene_type,
+        reply_to_text=reply_to_text,
+        reply_to_user_name=reply_to_user_name,
+        is_continuation=is_continuation,
+        context_json=context_json,
         message_time=message_time,
     )
 

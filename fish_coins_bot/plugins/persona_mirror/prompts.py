@@ -47,9 +47,12 @@ def build_summary_prompt(
     context_instruction = ""
     if context_samples:
         context_instruction = (
-            "5. context_samples 里包含了目标部分发言的前后群聊上下文，"
-            "用来帮你理解他在什么情境下会说什么话。"
-            "据此更新 response_patterns 和 situational_patterns。\n"
+            "5. context_samples 里包含了目标部分发言的前后群聊上下文和场景分类，\n"
+            "   每个样本包括: context（发言前的群聊记录，带发言者信息）、target_said（目标说的话）、\n"
+            "   scene_type（场景类型，如被@后回应、回复他人、被提及后回应、连续发言、主动发言）、\n"
+            "   reply_to（如果是回复别人的消息，记录了被回复的内容和对方名字）。\n"
+            "   据此重点分析：目标在不同场景下的回应风格差异，更新 response_patterns 和 situational_patterns。\n"
+            "   特别注意目标被提问、被@、被调侃时分别是怎么回应的。\n"
         )
 
     return (
@@ -103,6 +106,7 @@ def build_speak_prompt(
     recent_chat_messages: list[dict[str, Any]],
     similar_messages: list[str],
     top_face_ids: list[str],
+    conversation_snippets: list[dict[str, Any]] | None = None,
     trigger_reason: dict[str, Any] | None = None,
 ) -> str:
     trigger_payload = trigger_reason or {}
@@ -133,6 +137,10 @@ def build_speak_prompt(
         "尽量接近这些真实发言的风格，但不要照抄内容。\n"
         "6. 特别注意画像中的 ending_habits 和 punctuation，"
         "句尾风格要和目标保持一致（比如目标从不加句号你也不要加）。\n"
+        "7. 重点参考下面的「目标历史对话片段」，这些片段展示了目标在类似场景下怎么接话。\n"
+        "   观察目标的接话节奏：他是一条消息说完，还是习惯连发好几条短消息。\n"
+        "   如果片段中 target_replies 有多条，说明目标习惯连发，你的 reply 也应该用换行分成多条短句。\n"
+        "   如果片段中有 reply_to，说明目标在回应某条具体消息，参考他回应的方式和语气。\n"
         f"{scene_hint}\n\n"
         f"目标身份信息:\n{json.dumps(target_identity, ensure_ascii=False, indent=2)}\n\n"
         f"当前触发信息:\n{json.dumps(trigger_payload, ensure_ascii=False, indent=2)}\n\n"
@@ -140,6 +148,8 @@ def build_speak_prompt(
         f"人物画像:\n{json.dumps(profile, ensure_ascii=False, indent=2)}\n\n"
         "历史原话风格参考（仅供模仿风格，不要照抄内容）:\n"
         f"{json.dumps(similar_messages, ensure_ascii=False, indent=2)}\n\n"
+        f"目标历史对话片段（展示他在类似场景下怎么接话，重点参考）:\n"
+        f"{json.dumps(conversation_snippets or [], ensure_ascii=False, indent=2)}\n\n"
         f"常用 QQ 表情 ID:\n{json.dumps(top_face_ids, ensure_ascii=False)}\n\n"
         f"这次显性意图 explicit_intent:\n{intent_text}"
     )
@@ -157,4 +167,4 @@ def _build_scene_hint(trigger_payload: dict[str, Any]) -> str:
 
     if not hints:
         return ""
-    return "7. 触发场景提示: " + "；".join(hints) + "。"
+    return "8. 触发场景提示: " + "；".join(hints) + "。"

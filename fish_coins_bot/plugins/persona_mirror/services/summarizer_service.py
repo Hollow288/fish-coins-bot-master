@@ -139,15 +139,22 @@ def _build_context_samples(messages: list[PersonaMessage], max_samples: int = 8)
     """从消息中提取有上下文的样本，用于画像总结时理解场景。"""
     samples: list[dict[str, Any]] = []
     for msg in messages:
-        feature = msg.feature_json or {}
-        context_before = feature.get("context_before")
-        if context_before and msg.plain_text:
-            samples.append({
-                "context_before": context_before,
-                "target_said": msg.plain_text,
-            })
-            if len(samples) >= max_samples:
-                break
+        context = msg.context_json
+        if not context or not msg.plain_text:
+            continue
+        sample: dict[str, Any] = {
+            "context": context,
+            "target_said": msg.plain_text,
+            "scene_type": msg.scene_type,
+        }
+        if msg.reply_to_text:
+            sample["reply_to"] = {
+                "user_name": msg.reply_to_user_name or "",
+                "text": msg.reply_to_text,
+            }
+        samples.append(sample)
+        if len(samples) >= max_samples:
+            break
     return samples
 
 
@@ -305,6 +312,94 @@ async def _fetch_candidate_messages(
     return all_candidates
 
 
+def _infer_scene_type_from_trigger(trigger_reason: dict[str, Any] | None) -> str | None:
+    """从触发原因推断应优先匹配的历史场景类型。"""
+    if not trigger_reason:
+        return None
+    if trigger_reason.get("at_target_user"):
+        return "被@后回应"
+    if trigger_reason.get("reply_to_target_user"):
+        return "回复他人"
+    if trigger_reason.get("matched_keywords"):
+        return "被提及后回应"
+    return None
+
+
+async def _fetch_conversation_snippets(
+    target_user_id: str,
+    search_query: str,
+    current_scene_type: str | None = None,
+    limit: int = 5,
+) -> list[dict[str, Any]]:
+    """从历史消息中提取目标参与的对话片段（上下文 + 目标回复），用于回复生成。"""
+    messages = await (
+        PersonaMessage.filter(target_user_id=target_user_id)
+        .order_by("-id")
+        .limit(300)
+    )
+    # 按时间正序排列
+    messages = list(reversed(messages))
+
+    # 将连续发言合并为对话片段
+    raw_snippets: list[dict[str, Any]] = []
+    i = 0
+    while i < len(messages):
+        msg = messages[i]
+        # 片段的起点：有上下文、不是连续发言的中间部分
+        if not msg.context_json or msg.is_continuation:
+            i += 1
+            continue
+
+        target_replies = [msg.plain_text] if msg.plain_text else []
+        # 收集后续的连续发言
+        j = i + 1
+        while j < len(messages) and messages[j].is_continuation and messages[j].target_user_id == target_user_id:
+            if messages[j].plain_text:
+                target_replies.append(messages[j].plain_text)
+            j += 1
+
+        if target_replies:
+            snippet: dict[str, Any] = {
+                "context": msg.context_json,
+                "target_replies": target_replies,
+                "scene_type": msg.scene_type,
+            }
+            if msg.reply_to_text:
+                snippet["reply_to"] = {
+                    "user_name": msg.reply_to_user_name or "",
+                    "text": msg.reply_to_text,
+                }
+            raw_snippets.append(snippet)
+        i = j
+
+    if not raw_snippets:
+        return []
+
+    # 打分：场景类型匹配 + 内容相似度
+    scored: list[tuple[float, dict[str, Any]]] = []
+    for snippet in raw_snippets:
+        score = 0.0
+        if current_scene_type and snippet["scene_type"] == current_scene_type:
+            score += 1.0
+        if search_query:
+            combined_reply = " ".join(snippet["target_replies"])
+            score += similarity_score(search_query, combined_reply) * 0.5
+            context_text = " ".join(c.get("text", "") for c in snippet["context"])
+            score += similarity_score(search_query, context_text) * 0.3
+        scored.append((score, snippet))
+
+    scored.sort(key=lambda x: x[0], reverse=True)
+
+    # 取 top，但也混入一些随机片段以增加多样性
+    top_snippets = [s for _, s in scored[:limit]]
+    if len(scored) > limit:
+        remaining = [s for _, s in scored[limit:]]
+        random_pick = random.sample(remaining, min(2, len(remaining)))
+        top_snippets.extend(random_pick)
+
+    return top_snippets[:limit]
+
+
 async def generate_reply(
     target: PersonaTarget,
     intent_text: str,
@@ -360,6 +455,15 @@ async def generate_reply(
     ).order_by("-used_count").limit(5)
     top_face_ids = [asset.face_id for asset in face_assets if asset.face_id]
 
+    # 提取历史对话片段
+    current_scene_type = _infer_scene_type_from_trigger(trigger_reason)
+    conversation_snippets = await _fetch_conversation_snippets(
+        target_user_id=target.target_user_id,
+        search_query=search_query,
+        current_scene_type=current_scene_type,
+        limit=5,
+    )
+
     prompt = build_speak_prompt(
         target_identity=target_identity,
         profile=_normalize_profile(profile_state.current_profile_json),
@@ -367,6 +471,7 @@ async def generate_reply(
         recent_chat_messages=recent_chat_messages or [],
         similar_messages=similar_messages,
         top_face_ids=top_face_ids,
+        conversation_snippets=conversation_snippets,
         trigger_reason=trigger_reason,
     )
     result, raw_response = await _call_json_model(

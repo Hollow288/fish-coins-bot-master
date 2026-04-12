@@ -65,6 +65,57 @@ def get_recent_context_texts(group_id: str | int, limit: int = 3) -> list[str]:
     ]
 
 
+def get_recent_context_structured(group_id: str | int, limit: int = 5) -> list[dict[str, str]]:
+    """获取最近几条群消息的结构化数据，用于给 collector 存发言前上下文。"""
+    cached = list(_GROUP_MESSAGE_CACHE.get(str(group_id), []))
+    recent = cached[-limit:]
+    return [
+        {
+            "user_id": item["user_id"],
+            "name": item["sender_name"],
+            "text": item["rendered_text"],
+        }
+        for item in recent
+        if item.get("rendered_text")
+    ]
+
+
+def check_target_mentioned_recently(
+    group_id: str | int,
+    target_user_id: str,
+    target_aliases: list[str],
+    lookback: int = 3,
+) -> tuple[bool, bool]:
+    """检查目标最近是否被 @ 或被提到名字。返回 (was_at, was_mentioned_by_name)。"""
+    cached = list(_GROUP_MESSAGE_CACHE.get(str(group_id), []))
+    recent = cached[-lookback:]
+    alias_set = {a for a in target_aliases if a}
+
+    was_at = False
+    was_mentioned = False
+
+    for item in recent:
+        if item["user_id"] == target_user_id:
+            continue
+        for seg in item.get("raw_segments", []):
+            if seg.get("type") == "at" and str(seg.get("data", {}).get("qq", "")) == target_user_id:
+                was_at = True
+                break
+        text = item.get("rendered_text", "")
+        if alias_set and any(alias in text for alias in alias_set):
+            was_mentioned = True
+
+    return was_at, was_mentioned
+
+
+def is_last_message_from_user(group_id: str | int, user_id: str) -> bool:
+    """判断该群最后一条缓存消息是否来自指定用户（用于检测连续发言）。"""
+    cached = list(_GROUP_MESSAGE_CACHE.get(str(group_id), []))
+    if not cached:
+        return False
+    return cached[-1]["user_id"] == str(user_id)
+
+
 def get_recent_group_context(
     group_id: str | int,
     target_user_id: str,

@@ -116,7 +116,6 @@ def extract_ngrams(text: str, n: int = 2) -> list[str]:
 def build_feature_json(
     raw_segments: list[dict[str, Any]],
     plain_text: str,
-    context_before: list[str] | None = None,
 ) -> dict[str, Any]:
     face_ids = [
         str(segment.get("data", {}).get("id", ""))
@@ -149,10 +148,6 @@ def build_feature_json(
         "ending_char": ending_char,
         "punctuation": dict(punctuation_counter),
     }
-
-    # 保存发言前的群聊上下文（用于画像总结时理解场景）
-    if context_before:
-        feature["context_before"] = context_before[:3]
 
     return feature
 

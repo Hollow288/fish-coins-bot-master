@@ -32,6 +32,11 @@ class PersonaMessage(Model):
     normalized_text = fields.TextField(null=True, description="归一化后的文本")
     raw_segments_json = fields.JSONField(default=list, description="原始消息分段")
     feature_json = fields.JSONField(default=dict, description="局部统计特征")
+    scene_type = fields.CharField(max_length=32, default="主动发言", description="场景分类")
+    reply_to_text = fields.TextField(null=True, description="被回复消息的文本")
+    reply_to_user_name = fields.CharField(max_length=100, null=True, description="被回复者名称")
+    is_continuation = fields.BooleanField(default=False, description="是否为连续发言")
+    context_json = fields.JSONField(default=list, description="发言前群聊上下文")
     message_time = fields.DatetimeField(index=True, description="消息时间")
     created_at = fields.DatetimeField(auto_now_add=True, description="入库时间")
 

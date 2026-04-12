@@ -29,12 +29,18 @@ CREATE TABLE IF NOT EXISTS `persona_message` (
   `normalized_text` TEXT NULL COMMENT '归一化后的文本',
   `raw_segments_json` JSON NOT NULL COMMENT '原始消息分段',
   `feature_json` JSON NOT NULL COMMENT '局部统计特征',
+  `scene_type` VARCHAR(32) NOT NULL DEFAULT '主动发言' COMMENT '场景分类',
+  `reply_to_text` TEXT NULL COMMENT '被回复消息的文本',
+  `reply_to_user_name` VARCHAR(100) NULL COMMENT '被回复者名称',
+  `is_continuation` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否为连续发言',
+  `context_json` JSON NOT NULL COMMENT '发言前群聊上下文',
   `message_time` DATETIME(6) NOT NULL COMMENT '消息时间',
   `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) COMMENT '入库时间',
   PRIMARY KEY (`id`),
   KEY `idx_persona_message_target_user_id` (`target_user_id`),
   KEY `idx_persona_message_message_time` (`message_time`),
-  KEY `idx_persona_message_target_user_id_message_time` (`target_user_id`, `message_time`)
+  KEY `idx_persona_message_target_user_id_message_time` (`target_user_id`, `message_time`),
+  KEY `idx_persona_message_scene_type` (`target_user_id`, `scene_type`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='人设原始消息';
 
 CREATE TABLE IF NOT EXISTS `persona_asset` (
@@ -118,6 +124,74 @@ BEGIN
   ) THEN
     ALTER TABLE `persona_target`
       ADD COLUMN `last_auto_reply_at` DATETIME(6) NULL COMMENT '最近自动回复时间' AFTER `last_summarized_message_id`;
+  END IF;
+
+  -- persona_message 新增字段
+  IF NOT EXISTS (
+    SELECT 1
+    FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'persona_message'
+      AND COLUMN_NAME = 'scene_type'
+  ) THEN
+    ALTER TABLE `persona_message`
+      ADD COLUMN `scene_type` VARCHAR(32) NOT NULL DEFAULT '主动发言' COMMENT '场景分类' AFTER `feature_json`;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'persona_message'
+      AND COLUMN_NAME = 'reply_to_text'
+  ) THEN
+    ALTER TABLE `persona_message`
+      ADD COLUMN `reply_to_text` TEXT NULL COMMENT '被回复消息的文本' AFTER `scene_type`;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'persona_message'
+      AND COLUMN_NAME = 'reply_to_user_name'
+  ) THEN
+    ALTER TABLE `persona_message`
+      ADD COLUMN `reply_to_user_name` VARCHAR(100) NULL COMMENT '被回复者名称' AFTER `reply_to_text`;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'persona_message'
+      AND COLUMN_NAME = 'is_continuation'
+  ) THEN
+    ALTER TABLE `persona_message`
+      ADD COLUMN `is_continuation` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否为连续发言' AFTER `reply_to_user_name`;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'persona_message'
+      AND COLUMN_NAME = 'context_json'
+  ) THEN
+    ALTER TABLE `persona_message`
+      ADD COLUMN `context_json` JSON NOT NULL COMMENT '发言前群聊上下文' AFTER `is_continuation`;
+  END IF;
+
+  -- persona_message 新增索引
+  IF NOT EXISTS (
+    SELECT 1
+    FROM INFORMATION_SCHEMA.STATISTICS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'persona_message'
+      AND INDEX_NAME = 'idx_persona_message_scene_type'
+  ) THEN
+    ALTER TABLE `persona_message`
+      ADD KEY `idx_persona_message_scene_type` (`target_user_id`, `scene_type`);
   END IF;
 
   IF EXISTS (
