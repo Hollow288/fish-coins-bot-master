@@ -179,3 +179,10 @@ def safe_json_loads(raw_text: str | None) -> dict[str, Any] | None:
 
 def top_items(counter: Counter[str], limit: int) -> list[str]:
     return [item for item, _count in counter.most_common(limit)]
+
+
+def safe_reply_sender_name(reply) -> str:
+    if not reply or not getattr(reply, "sender", None):
+        return ""
+    sender = reply.sender
+    return getattr(sender, "card", "") or getattr(sender, "nickname", "") or str(getattr(sender, "user_id", ""))

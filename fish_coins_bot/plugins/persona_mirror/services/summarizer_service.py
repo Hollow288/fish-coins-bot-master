@@ -25,6 +25,71 @@ def _normalize_list(value: Any) -> list[str]:
     return deduplicated
 
 
+def _merge_list_keep_tail(old: list[str], new: list[str], cap: int) -> list[str]:
+    """合并两个列表：以 new 为主，补入 old 中 new 未覆盖的条目，总量不超过 cap。"""
+    seen: set[str] = set()
+    merged: list[str] = []
+    for item in new:
+        if item not in seen:
+            merged.append(item)
+            seen.add(item)
+    for item in old:
+        if item not in seen:
+            merged.append(item)
+            seen.add(item)
+    return merged[:cap]
+
+
+def _merge_profiles(
+    old_profile: dict[str, Any],
+    new_profile: dict[str, Any],
+) -> dict[str, Any]:
+    """将 AI 新输出的画像与旧画像做 union merge，防止已稳定的特征被丢弃。"""
+    # 需要合并的顶层列表字段及各自上限
+    list_fields: dict[str, int] = {
+        "tone": 10,
+        "catchphrases": 15,
+        "habit_words": 20,
+        "response_patterns": 12,
+        "topic_tendencies": 10,
+        "situational_patterns": 10,
+        "negative_rules": 10,
+        "reply_constraints": 10,
+    }
+    merged = dict(new_profile)
+    for field, cap in list_fields.items():
+        merged[field] = _merge_list_keep_tail(
+            old_profile.get(field) or [],
+            new_profile.get(field) or [],
+            cap,
+        )
+
+    # sentence_style 内部的列表字段
+    old_style = old_profile.get("sentence_style") or {}
+    new_style = new_profile.get("sentence_style") or {}
+    merged_style = dict(new_style)
+    for sub_field, cap in [("punctuation", 10), ("ending_habits", 10)]:
+        merged_style[sub_field] = _merge_list_keep_tail(
+            old_style.get(sub_field) or [],
+            new_style.get(sub_field) or [],
+            cap,
+        )
+    merged["sentence_style"] = merged_style
+
+    # emoji_habits 内部的列表字段
+    old_emoji = old_profile.get("emoji_habits") or {}
+    new_emoji = new_profile.get("emoji_habits") or {}
+    merged_emoji = dict(new_emoji)
+    merged_emoji["qq_faces"] = _merge_list_keep_tail(
+        old_emoji.get("qq_faces") or [],
+        new_emoji.get("qq_faces") or [],
+        10,
+    )
+    merged["emoji_habits"] = merged_emoji
+
+    return merged
+
+
 def _normalize_profile(profile: dict[str, Any] | None) -> dict[str, Any]:
     merged: dict[str, Any] = {
         "tone": [],
@@ -220,9 +285,9 @@ async def summarize_target(target: PersonaTarget, force: bool = False) -> tuple[
     current_profile = current_state.current_profile_json if current_state else DEFAULT_PROFILE
     stats = _build_incremental_stats(messages)
     sample_messages = [
-        render_segments_as_text(message.raw_segments_json)
+        rendered
         for message in messages
-        if render_segments_as_text(message.raw_segments_json)
+        if (rendered := render_segments_as_text(message.raw_segments_json))
     ][: config.summary_sample_size]
 
     # 提取有上下文的样本
@@ -244,7 +309,9 @@ async def summarize_target(target: PersonaTarget, force: bool = False) -> tuple[
     if summary_json is None:
         return False, "AI 总结结果不是合法 JSON。"
 
-    normalized_profile = _normalize_profile(summary_json)
+    normalized_new = _normalize_profile(summary_json)
+    normalized_old = _normalize_profile(current_profile)
+    normalized_profile = _merge_profiles(normalized_old, normalized_new)
     snapshot = await PersonaProfileSnapshot.create(
         target_user_id=target.target_user_id,
         summary_type="manual" if force else "incremental",
@@ -438,15 +505,15 @@ async def generate_reply(
         scored_messages = candidate_messages
 
     similar_messages = [
-        render_segments_as_text(message.raw_segments_json)
+        rendered
         for message in scored_messages[: config.speak_sample_size]
-        if render_segments_as_text(message.raw_segments_json)
+        if (rendered := render_segments_as_text(message.raw_segments_json))
     ]
     if not similar_messages:
         similar_messages = [
-            render_segments_as_text(message.raw_segments_json)
+            rendered
             for message in candidate_messages[: config.speak_sample_size]
-            if render_segments_as_text(message.raw_segments_json)
+            if (rendered := render_segments_as_text(message.raw_segments_json))
         ]
 
     face_assets = await PersonaAsset.filter(

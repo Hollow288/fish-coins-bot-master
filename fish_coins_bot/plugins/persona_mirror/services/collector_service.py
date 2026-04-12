@@ -7,6 +7,7 @@ from ..utils import (
     message_segments_to_list,
     normalize_text,
     render_segments_as_text,
+    safe_reply_sender_name,
 )
 from .context_service import (
     check_target_mentioned_recently,
@@ -14,13 +15,6 @@ from .context_service import (
     is_last_message_from_user,
 )
 from .persona_service import get_effective_trigger_keywords
-
-
-def _safe_reply_sender_name(reply) -> str:
-    if not reply or not getattr(reply, "sender", None):
-        return ""
-    sender = reply.sender
-    return getattr(sender, "card", "") or getattr(sender, "nickname", "") or str(getattr(sender, "user_id", ""))
 
 
 def _classify_scene(
@@ -112,7 +106,7 @@ async def collect_message_event(event: GroupMessageEvent | PrivateMessageEvent) 
         reply = getattr(event, "reply", None)
         if reply and getattr(reply, "message", None):
             reply_to_text = render_segments_as_text(message_segments_to_list(reply.message))
-            reply_to_user_name = _safe_reply_sender_name(reply)
+            reply_to_user_name = safe_reply_sender_name(reply)
 
         # 场景分类
         scene_type = _classify_scene(

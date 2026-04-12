@@ -1,6 +1,8 @@
 # 使用官方 Python 3.13-slim（基于 Debian Trixie）
 FROM python:3.13-slim
 
+ARG POETRY_VERSION=1.8.4
+
 # 设置工作目录
 WORKDIR /app
 
@@ -47,8 +49,8 @@ RUN apt-get update && \
     && fc-cache -fv && \
     rm -rf /var/lib/apt/lists/*
 
-# 安装 Poetry
-RUN curl -sSL https://install.python-poetry.org | python3 -
+# 安装 Poetry（固定版本，避免工作流随 Poetry 最新版变化而漂移）
+RUN curl -sSL https://install.python-poetry.org | POETRY_VERSION=${POETRY_VERSION} python3 -
 
 # 将 Poetry 添加到 PATH
 ENV PATH="/root/.local/bin:$PATH"
@@ -66,8 +68,7 @@ ENV LC_ALL=zh_CN.UTF-8
 COPY pyproject.toml poetry.lock /app/
 
 # 安装项目依赖
-# 【提醒】请确保 pyproject.toml 里已经添加了 yt-dlp 和 minio (poetry add yt-dlp minio)
-RUN poetry install --no-root
+RUN poetry install --no-root --no-interaction --no-ansi
 
 # 安装 Playwright 及其浏览器
 RUN poetry run python -m playwright install chromium

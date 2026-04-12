@@ -127,18 +127,23 @@ async def handle_auto_persona_reply(bot: Bot, event: GroupMessageEvent) -> None:
     if not candidate_payloads:
         return
 
-    # 批量检查画像是否存在
+    # 批量检查画像是否存在且消息量达标
     candidate_user_ids = list({p["target"].target_user_id for p in candidate_payloads})
     existing_profiles = await PersonaProfileState.filter(
         target_user_id__in=candidate_user_ids
-    ).values_list("target_user_id", flat=True)
-    profile_set = set(existing_profiles)
-    candidate_payloads = [p for p in candidate_payloads if p["target"].target_user_id in profile_set]
+    )
+    min_msg = config.auto_reply_min_message_count
+    qualified_user_ids = {
+        ps.target_user_id
+        for ps in existing_profiles
+        if ps.total_message_count >= min_msg
+    }
+    candidate_payloads = [p for p in candidate_payloads if p["target"].target_user_id in qualified_user_ids]
 
     if not candidate_payloads:
         return
 
-    selected = sorted(candidate_payloads, key=lambda item: item["score"], reverse=True)[0]
+    selected = max(candidate_payloads, key=lambda item: item["score"])
     target = selected["target"]
     target_aliases = get_effective_trigger_keywords(target)
     recent_chat_messages = get_recent_group_context(

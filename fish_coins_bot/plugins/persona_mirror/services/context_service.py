@@ -4,7 +4,7 @@ from typing import Any
 from nonebot.adapters.onebot.v11 import GroupMessageEvent
 
 from ..config import get_plugin_config
-from ..utils import datetime_from_timestamp, message_segments_to_list, normalize_text, render_segments_as_text
+from ..utils import datetime_from_timestamp, message_segments_to_list, normalize_text, render_segments_as_text, safe_reply_sender_name
 
 
 _GROUP_MESSAGE_CACHE: dict[str, deque[dict[str, Any]]] = defaultdict(
@@ -24,13 +24,6 @@ def _get_cached_messages(
 
 def _safe_sender_name(event: GroupMessageEvent) -> str:
     return event.sender.card or event.sender.nickname or str(event.user_id)
-
-
-def _safe_reply_sender_name(reply) -> str:
-    if not reply or not getattr(reply, "sender", None):
-        return ""
-    sender = reply.sender
-    return getattr(sender, "card", "") or getattr(sender, "nickname", "") or str(getattr(sender, "user_id", ""))
 
 
 def record_group_message_context(event: GroupMessageEvent) -> None:
@@ -57,7 +50,7 @@ def record_group_message_context(event: GroupMessageEvent) -> None:
             "rendered_text": rendered_text,
             "raw_segments": raw_segments,
             "reply_to_user_id": reply_to_user_id,
-            "reply_to_sender_name": _safe_reply_sender_name(reply_message),
+            "reply_to_sender_name": safe_reply_sender_name(reply_message),
             "reply_rendered_text": reply_rendered_text,
             "timestamp": datetime_from_timestamp(getattr(event, "time", None)).isoformat(),
         }

@@ -737,6 +737,16 @@ MarkupSafe = ">=2.0"
 i18n = ["Babel (>=2.7)"]
 
 [[package]]
+name = "jieba"
+version = "0.42.1"
+description = "Chinese Words Segmentation Utilities"
+optional = false
+python-versions = "*"
+files = [
+    {file = "jieba-0.42.1.tar.gz", hash = "sha256:055ca12f62674fafed09427f176506079bc135638a14e23e25be909131928db2"},
+]
+
+[[package]]
 name = "loguru"
 version = "0.7.2"
 description = "Python logging made (stupidly) simple"
@@ -2369,4 +2379,4 @@ test = ["pytest (>=8.1,<9.0)", "pytest-rerunfailures (>=14.0,<15.0)"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.13"
-content-hash = "8aeb4e4d4c7d7e6dce7b43d8ad69722b6f917e2b35056cac3aa464c65b654263"
+content-hash = "0dcb43d0bc92d6aaaef3a94d92498ca915869f38983e447a64bffcaa8a9141e1"

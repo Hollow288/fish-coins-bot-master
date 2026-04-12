@@ -37,6 +37,7 @@ class PersonaMirrorConfig:
     scheduler_enabled: bool
     auto_reply_cooldown_seconds: int
     auto_reply_min_keyword_length: int
+    auto_reply_min_message_count: int
 
 
 @lru_cache(maxsize=1)
@@ -58,5 +59,8 @@ def get_plugin_config() -> PersonaMirrorConfig:
         ),
         auto_reply_min_keyword_length=_parse_int(
             os.getenv("PERSONA_AUTO_REPLY_MIN_KEYWORD_LENGTH"), default=2, minimum=1
+        ),
+        auto_reply_min_message_count=_parse_int(
+            os.getenv("PERSONA_AUTO_REPLY_MIN_MESSAGE_COUNT"), default=50, minimum=0
         ),
     )
