@@ -76,6 +76,14 @@ async def collect_message_event(event: GroupMessageEvent | PrivateMessageEvent) 
 
     raw_segments = message_segments_to_list(event.message)
     plain_text = event.get_plaintext().strip()
+
+    # 如果消息没有文本内容，且只包含无法理解的媒体类型（表情包/图片等），跳过采集
+    if not plain_text:
+        meaningful_types = {"text", "face", "at"}
+        has_meaningful = any(seg.get("type") in meaningful_types for seg in raw_segments)
+        if not has_meaningful:
+            return None
+
     normalized_text = normalize_text(plain_text)
 
     context_json: list[dict] = []
