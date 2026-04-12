@@ -6,7 +6,7 @@ from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent, MessageSegment
 from nonebot.log import logger
 
 from .config import get_plugin_config
-from .models import PersonaProfileState, PersonaTarget
+from .models import PersonaMessage, PersonaProfileState, PersonaTarget
 from .services.context_service import get_recent_group_context
 from .services.persona_service import get_effective_trigger_keywords
 from .services.summarizer_service import generate_reply
@@ -123,6 +123,20 @@ async def handle_auto_persona_reply(bot: Bot, event: GroupMessageEvent) -> None:
         payload = _extract_trigger_payload(event, target)
         if payload is not None:
             candidate_payloads.append(payload)
+
+    if not candidate_payloads:
+        return
+
+    # 批量检查目标在当前群是否有采集过消息（群隔离：防止目标在A群，机器人在B群回复）
+    current_group_id = str(event.group_id)
+    candidate_user_ids = list({p["target"].target_user_id for p in candidate_payloads})
+    targets_in_group = set(
+        await PersonaMessage.filter(
+            target_user_id__in=candidate_user_ids,
+            group_id=current_group_id,
+        ).distinct().values_list("target_user_id", flat=True)
+    )
+    candidate_payloads = [p for p in candidate_payloads if p["target"].target_user_id in targets_in_group]
 
     if not candidate_payloads:
         return
