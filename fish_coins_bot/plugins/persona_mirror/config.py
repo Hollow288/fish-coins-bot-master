@@ -40,6 +40,20 @@ class PersonaMirrorConfig:
     auto_reply_min_message_count: int
 
 
+_cooldown_override: int | None = None
+
+
+def get_auto_reply_cooldown() -> int:
+    if _cooldown_override is not None:
+        return _cooldown_override
+    return get_plugin_config().auto_reply_cooldown_seconds
+
+
+def set_auto_reply_cooldown(seconds: int) -> None:
+    global _cooldown_override
+    _cooldown_override = max(seconds, 0)
+
+
 @lru_cache(maxsize=1)
 def get_plugin_config() -> PersonaMirrorConfig:
     return PersonaMirrorConfig(

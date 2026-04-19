@@ -5,6 +5,7 @@ from nonebot.adapters.onebot.v11 import GroupMessageEvent, Message, MessageEvent
 from nonebot.params import CommandArg
 
 from .auto_reply import invalidate_target_cache
+from .config import get_auto_reply_cooldown, set_auto_reply_cooldown
 from .models import PersonaAsset, PersonaMessage
 from .services.context_service import get_recent_group_context
 from .services.persona_service import (
@@ -57,6 +58,7 @@ persona_keywords_cmd = on_command("人设关键词", aliases={"persona_keywords"
 persona_show_keywords_cmd = on_command("人设看关键词", aliases={"persona_show_keywords"}, priority=10, block=True)
 persona_status_cmd = on_command("人设状态", aliases={"persona_status"}, priority=10, block=True)
 persona_summary_cmd = on_command("人设总结", aliases={"persona_summary"}, priority=10, block=True)
+persona_cooldown_cmd = on_command("模仿冷却", aliases={"persona_cooldown"}, priority=10, block=True)
 persona_speak_cmd = on_command("学他说话", aliases={"persona_speak"}, priority=10, block=True)
 
 
@@ -71,6 +73,7 @@ async def handle_persona_help() -> None:
         "人设看关键词 [QQ号]\n"
         "人设状态\n"
         "人设总结 [QQ号]\n"
+        "模仿冷却 [秒数] — 查看/设置自动回复冷却\n"
         "学他说话 [QQ号] <想表达的话>"
     )
     await persona_help.finish(help_text)
@@ -214,6 +217,26 @@ async def handle_persona_summary(event: MessageEvent, args: Message = CommandArg
     if not success:
         await persona_summary_cmd.finish(detail)
     await persona_summary_cmd.finish(detail)
+
+
+@persona_cooldown_cmd.handle()
+async def handle_persona_cooldown(event: MessageEvent, args: Message = CommandArg()) -> None:
+    if not await _require_admin(event, persona_cooldown_cmd):
+        return
+
+    parts = _parse_args(args)
+    if not parts:
+        current = get_auto_reply_cooldown()
+        await persona_cooldown_cmd.finish(f"当前模仿冷却时间: {current} 秒")
+
+    try:
+        seconds = int(parts[0])
+    except ValueError:
+        await persona_cooldown_cmd.finish("请输入一个整数秒数，例如: 模仿冷却 20")
+        return
+
+    set_auto_reply_cooldown(seconds)
+    await persona_cooldown_cmd.finish(f"模仿冷却时间已设置为 {get_auto_reply_cooldown()} 秒")
 
 
 @persona_speak_cmd.handle()

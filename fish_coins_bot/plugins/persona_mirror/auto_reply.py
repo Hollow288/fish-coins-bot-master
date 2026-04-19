@@ -4,7 +4,7 @@ from nonebot import on_message
 from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent, Message, MessageSegment
 from nonebot.log import logger
 
-from .config import get_plugin_config
+from .config import get_auto_reply_cooldown, get_plugin_config
 from .models import PersonaMessage, PersonaProfileState, PersonaTarget
 from .services.context_service import get_recent_group_context
 from .services.persona_service import get_effective_trigger_keywords
@@ -111,12 +111,13 @@ async def handle_auto_persona_reply(bot: Bot, event: GroupMessageEvent) -> None:
     for target in targets:
         if target.target_user_id == str(event.user_id):
             continue
-        if target.last_auto_reply_at and config.auto_reply_cooldown_seconds > 0:
+        cooldown = get_auto_reply_cooldown()
+        if target.last_auto_reply_at and cooldown > 0:
             last_auto_reply_at = target.last_auto_reply_at
             if last_auto_reply_at.tzinfo is None:
                 last_auto_reply_at = last_auto_reply_at.replace(tzinfo=now.tzinfo)
             diff_seconds = (now - last_auto_reply_at).total_seconds()
-            if diff_seconds < config.auto_reply_cooldown_seconds:
+            if diff_seconds < cooldown:
                 continue
 
         payload = _extract_trigger_payload(event, target)
