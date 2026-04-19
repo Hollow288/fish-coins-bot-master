@@ -1,8 +1,7 @@
 from collections import Counter
 
 from nonebot import on_command
-from nonebot.adapters import Message
-from nonebot.adapters.onebot.v11 import GroupMessageEvent, MessageEvent, MessageSegment
+from nonebot.adapters.onebot.v11 import GroupMessageEvent, Message, MessageEvent, MessageSegment
 from nonebot.params import CommandArg
 
 from .auto_reply import invalidate_target_cache
