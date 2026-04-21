@@ -324,6 +324,22 @@ def merge_manual_profile(
     return merged
 
 
+def replace_manual_persona_profile(
+    current_profile: dict[str, Any] | None,
+    updates: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """用新的人设标签输入替换旧的人设侧字段，保留基础资料字段。"""
+    current = normalize_manual_profile(current_profile)
+    incoming = normalize_manual_profile(updates)
+    merged = deepcopy(current)
+    for field in ("mbti", "zodiac", "persona_tags_text"):
+        merged[field] = incoming[field]
+    merged["personality_tags"] = list(incoming["personality_tags"])
+    merged["culture_tags"] = list(incoming["culture_tags"])
+    merged["subjective_impression"] = incoming["subjective_impression"]
+    return merged
+
+
 def parse_basic_info_text(text: str, current_profile: dict[str, Any] | None = None) -> dict[str, Any]:
     current = normalize_manual_profile(current_profile)
     raw_text = _clean_text(text)
@@ -390,7 +406,7 @@ def parse_persona_tags_text(text: str, current_profile: dict[str, Any] | None = 
             residue = residue.replace(token, " ")
     residue = re.sub(r"[、,，；;]+", " ", residue)
     updates["subjective_impression"] = _clean_text(residue)
-    return merge_manual_profile(current, updates)
+    return replace_manual_persona_profile(current, updates)
 
 
 def normalize_correction_record(payload: dict[str, Any] | None) -> dict[str, str]:
@@ -878,5 +894,7 @@ def rebuild_profile_with_overrides(
     normalized = normalize_v2_profile(current_profile, manual_inputs=manual_inputs, corrections=corrections)
     normalized["layers"]["core_rules"] = build_core_rules(normalized["manual_inputs"], corrections)
     normalized["layers"]["identity"] = build_identity_layer(normalized["manual_inputs"])
+    # 手工输入和 correction 代表管理员最新确认结果，旧冲突在这里视为失效，等待下一轮总结重新派生。
+    normalized["pending_conflicts"] = []
     normalized["compiled_reply_profile"] = build_compiled_reply_profile_raw(normalized, corrections)
     return normalized

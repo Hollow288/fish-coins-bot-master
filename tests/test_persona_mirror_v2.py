@@ -29,6 +29,7 @@ def _load_module(module_name: str, file_path: Path):
 _ensure_package("fish_coins_bot", REPO_ROOT / "fish_coins_bot")
 _ensure_package("fish_coins_bot.plugins", REPO_ROOT / "fish_coins_bot" / "plugins")
 _ensure_package("fish_coins_bot.plugins.persona_mirror", PLUGIN_DIR)
+_ensure_package("fish_coins_bot.plugins.persona_mirror.services", PLUGIN_DIR / "services")
 
 profile_schema = _load_module(
     "fish_coins_bot.plugins.persona_mirror.profile_schema",
@@ -37,6 +38,23 @@ profile_schema = _load_module(
 prompts = _load_module(
     "fish_coins_bot.plugins.persona_mirror.prompts",
     PLUGIN_DIR / "prompts.py",
+)
+
+
+config_module = types.ModuleType("fish_coins_bot.plugins.persona_mirror.config")
+config_module.get_plugin_config = lambda: types.SimpleNamespace(summary_batch_size=30)
+sys.modules["fish_coins_bot.plugins.persona_mirror.config"] = config_module
+
+models_module = types.ModuleType("fish_coins_bot.plugins.persona_mirror.models")
+models_module.PersonaCorrection = type("PersonaCorrection", (), {})
+models_module.PersonaProfileState = type("PersonaProfileState", (), {})
+models_module.PersonaProfileSnapshot = type("PersonaProfileSnapshot", (), {})
+models_module.PersonaTarget = type("PersonaTarget", (), {})
+sys.modules["fish_coins_bot.plugins.persona_mirror.models"] = models_module
+
+persona_service = _load_module(
+    "fish_coins_bot.plugins.persona_mirror.services.persona_service",
+    PLUGIN_DIR / "services" / "persona_service.py",
 )
 
 
@@ -57,6 +75,14 @@ class PersonaMirrorV2Tests(unittest.TestCase):
         self.assertIn("甩锅高手", profile["personality_tags"])
         self.assertIn("字节范", profile["culture_tags"])
         self.assertIn("CR很严格但从来不解释原因", profile["subjective_impression"])
+
+    def test_parse_persona_tags_text_replaces_old_tag_fields(self) -> None:
+        current = profile_schema.parse_persona_tags_text("INTJ 只读不回 字节范 老是潜水")
+        updated = profile_schema.parse_persona_tags_text("ENFP 秒回强迫症 腾讯味 喜欢半夜秒回", current)
+        self.assertEqual(updated["mbti"], "ENFP")
+        self.assertEqual(updated["personality_tags"], ["秒回强迫症"])
+        self.assertEqual(updated["culture_tags"], ["腾讯味"])
+        self.assertEqual(updated["subjective_impression"], "喜欢半夜秒回")
 
     def test_legacy_profile_migrates_to_v2(self) -> None:
         legacy_profile = {
@@ -112,6 +138,45 @@ class PersonaMirrorV2Tests(unittest.TestCase):
         hard_constraints = profile["compiled_reply_profile"]["hard_constraints"]
         self.assertTrue(any("被催进度" in item for item in hard_constraints))
         self.assertTrue(any("截止时间" in item for item in hard_constraints))
+
+    def test_rebuild_profile_clears_stale_pending_conflicts(self) -> None:
+        manual_inputs = profile_schema.parse_persona_tags_text("秒回强迫症")
+        current = profile_schema.compose_v2_profile(
+            current_profile={},
+            analyzer_delta={
+                "expression": {},
+                "decisions": {},
+                "interpersonal": {},
+                "boundaries": {},
+                "inferred_tags": ["只读不回"],
+                "conflicts": [{"field": "personality_tags", "manual": "秒回强迫症", "inferred": "只读不回"}],
+            },
+            builder_profile=None,
+            manual_inputs=manual_inputs,
+            corrections=[],
+        )
+        rebuilt = profile_schema.rebuild_profile_with_overrides(
+            current,
+            manual_inputs=manual_inputs,
+            corrections=[],
+        )
+        self.assertTrue(current["pending_conflicts"])
+        self.assertEqual(rebuilt["pending_conflicts"], [])
+
+    def test_refresh_snapshot_payload_uses_current_profile_state(self) -> None:
+        state = types.SimpleNamespace(last_summary_message_id=42)
+        payload = persona_service._build_refresh_snapshot_payload(
+            target_user_id="123",
+            profile_json={"version": 2},
+            profile_state=state,
+            reason="manual_inputs_updated",
+        )
+        self.assertEqual(payload["target_user_id"], "123")
+        self.assertEqual(payload["summary_type"], "manual_refresh")
+        self.assertEqual(payload["start_message_id"], 42)
+        self.assertEqual(payload["end_message_id"], 42)
+        self.assertEqual(payload["summary_json"], {"version": 2})
+        self.assertIn("manual_inputs_updated", payload["prompt_text"])
 
     def test_prompts_include_manual_and_non_expression_layers(self) -> None:
         manual_inputs = profile_schema.parse_persona_tags_text("INTJ 字节范 甩锅高手")

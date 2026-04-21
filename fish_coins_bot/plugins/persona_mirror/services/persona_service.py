@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 
 from ..config import get_plugin_config
-from ..models import PersonaCorrection, PersonaProfileState, PersonaTarget
+from ..models import PersonaCorrection, PersonaProfileSnapshot, PersonaProfileState, PersonaTarget
 from ..profile_schema import (
     merge_manual_profile,
     normalize_correction_record,
@@ -25,6 +25,25 @@ def _normalize_keywords(keywords: list[str] | tuple[str, ...] | None) -> list[st
     return normalized
 
 
+def _build_refresh_snapshot_payload(
+    target_user_id: str,
+    profile_json: dict,
+    profile_state: PersonaProfileState,
+    reason: str,
+) -> dict:
+    message_id = int(getattr(profile_state, "last_summary_message_id", 0) or 0)
+    return {
+        "target_user_id": target_user_id,
+        "summary_type": "manual_refresh",
+        "source_message_count": 0,
+        "start_message_id": message_id,
+        "end_message_id": message_id,
+        "summary_json": profile_json,
+        "prompt_text": f"manual_refresh:{reason}",
+        "raw_response": "",
+    }
+
+
 async def _refresh_profile_state(target_user_id: str) -> PersonaProfileState | None:
     target = await PersonaTarget.get_or_none(target_user_id=target_user_id)
     state = await PersonaProfileState.get_or_none(target_user_id=target_user_id)
@@ -37,6 +56,16 @@ async def _refresh_profile_state(target_user_id: str) -> PersonaProfileState | N
         manual_inputs=target.manual_profile_json,
         corrections=corrections,
     )
+    await state.save()
+    snapshot = await PersonaProfileSnapshot.create(
+        **_build_refresh_snapshot_payload(
+            target_user_id=target_user_id,
+            profile_json=state.current_profile_json,
+            profile_state=state,
+            reason="manual_inputs_or_corrections_updated",
+        )
+    )
+    state.latest_snapshot_id = snapshot.id
     await state.save()
     return state
 
