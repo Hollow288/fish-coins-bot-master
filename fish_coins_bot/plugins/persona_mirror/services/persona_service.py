@@ -1,7 +1,16 @@
 from collections.abc import Sequence
 
 from ..config import get_plugin_config
-from ..models import PersonaProfileState, PersonaTarget
+from ..models import PersonaCorrection, PersonaProfileSnapshot, PersonaProfileState, PersonaTarget
+from ..profile_schema import (
+    merge_manual_profile,
+    normalize_correction_record,
+    normalize_manual_profile,
+    parse_basic_info_text,
+    parse_correction_text,
+    parse_persona_tags_text,
+    rebuild_profile_with_overrides,
+)
 
 
 def _normalize_keywords(keywords: list[str] | tuple[str, ...] | None) -> list[str]:
@@ -16,6 +25,51 @@ def _normalize_keywords(keywords: list[str] | tuple[str, ...] | None) -> list[st
     return normalized
 
 
+def _build_refresh_snapshot_payload(
+    target_user_id: str,
+    profile_json: dict,
+    profile_state: PersonaProfileState,
+    reason: str,
+) -> dict:
+    message_id = int(getattr(profile_state, "last_summary_message_id", 0) or 0)
+    return {
+        "target_user_id": target_user_id,
+        "summary_type": "manual_refresh",
+        "source_message_count": 0,
+        "start_message_id": message_id,
+        "end_message_id": message_id,
+        "summary_json": profile_json,
+        "prompt_text": f"manual_refresh:{reason}",
+        "raw_response": "",
+    }
+
+
+async def _refresh_profile_state(target_user_id: str) -> PersonaProfileState | None:
+    target = await PersonaTarget.get_or_none(target_user_id=target_user_id)
+    state = await PersonaProfileState.get_or_none(target_user_id=target_user_id)
+    if target is None or state is None:
+        return state
+
+    corrections = await list_correction_dicts(target_user_id)
+    state.current_profile_json = rebuild_profile_with_overrides(
+        state.current_profile_json,
+        manual_inputs=target.manual_profile_json,
+        corrections=corrections,
+    )
+    await state.save()
+    snapshot = await PersonaProfileSnapshot.create(
+        **_build_refresh_snapshot_payload(
+            target_user_id=target_user_id,
+            profile_json=state.current_profile_json,
+            profile_state=state,
+            reason="manual_inputs_or_corrections_updated",
+        )
+    )
+    state.latest_snapshot_id = snapshot.id
+    await state.save()
+    return state
+
+
 async def bind_target(owner_user_id: str, target_user_id: str, target_name: str | None = None) -> PersonaTarget:
     config = get_plugin_config()
     target = await PersonaTarget.get_or_none(target_user_id=target_user_id)
@@ -28,6 +82,7 @@ async def bind_target(owner_user_id: str, target_user_id: str, target_name: str 
             enabled=True,
             auto_reply_enabled=True,
             trigger_keywords_json=initial_keywords,
+            manual_profile_json=normalize_manual_profile({}),
             summary_batch_size=config.summary_batch_size,
         )
     else:
@@ -39,6 +94,8 @@ async def bind_target(owner_user_id: str, target_user_id: str, target_name: str 
         target.enabled = True
         if target.summary_batch_size <= 0:
             target.summary_batch_size = config.summary_batch_size
+        if not target.manual_profile_json:
+            target.manual_profile_json = normalize_manual_profile({})
         await target.save()
     return target
 
@@ -75,7 +132,6 @@ async def get_profile_state(target_user_id: str) -> PersonaProfileState | None:
     return await PersonaProfileState.get_or_none(target_user_id=target_user_id)
 
 
-
 async def set_trigger_keywords(target_user_id: str, keywords: list[str]) -> PersonaTarget | None:
     target = await PersonaTarget.get_or_none(target_user_id=target_user_id)
     if target is None:
@@ -90,3 +146,89 @@ def get_effective_trigger_keywords(target: PersonaTarget) -> list[str]:
     if target.target_name and target.target_name not in keywords:
         keywords.insert(0, target.target_name)
     return keywords
+
+
+async def get_manual_profile(target_user_id: str) -> dict:
+    target = await PersonaTarget.get_or_none(target_user_id=target_user_id)
+    if target is None:
+        return normalize_manual_profile({})
+    return normalize_manual_profile(target.manual_profile_json)
+
+
+async def update_manual_basic_info(target_user_id: str, text: str) -> PersonaTarget | None:
+    target = await PersonaTarget.get_or_none(target_user_id=target_user_id)
+    if target is None:
+        return None
+    target.manual_profile_json = parse_basic_info_text(text, target.manual_profile_json)
+    await target.save()
+    await _refresh_profile_state(target_user_id)
+    return target
+
+
+async def update_manual_persona_tags(target_user_id: str, text: str) -> PersonaTarget | None:
+    target = await PersonaTarget.get_or_none(target_user_id=target_user_id)
+    if target is None:
+        return None
+    target.manual_profile_json = parse_persona_tags_text(text, target.manual_profile_json)
+    await target.save()
+    await _refresh_profile_state(target_user_id)
+    return target
+
+
+async def set_manual_profile(target_user_id: str, payload: dict) -> PersonaTarget | None:
+    target = await PersonaTarget.get_or_none(target_user_id=target_user_id)
+    if target is None:
+        return None
+    target.manual_profile_json = merge_manual_profile(target.manual_profile_json, payload)
+    await target.save()
+    await _refresh_profile_state(target_user_id)
+    return target
+
+
+async def list_corrections(target_user_id: str, limit: int = 20) -> Sequence[PersonaCorrection]:
+    return await PersonaCorrection.filter(target_user_id=target_user_id).order_by("-updated_at").limit(limit)
+
+
+async def list_correction_dicts(target_user_id: str, limit: int = 20) -> list[dict[str, str]]:
+    records = await list_corrections(target_user_id, limit=limit)
+    return [
+        normalize_correction_record(
+            {
+                "scene": item.scene,
+                "wrong": item.wrong,
+                "correct": item.correct,
+            }
+        )
+        for item in records
+    ]
+
+
+async def add_correction(target_user_id: str, raw_text: str) -> tuple[PersonaCorrection | None, dict[str, str]]:
+    target = await PersonaTarget.get_or_none(target_user_id=target_user_id)
+    parsed = parse_correction_text(raw_text)
+    if target is None:
+        return None, parsed
+
+    existing = await PersonaCorrection.get_or_none(
+        target_user_id=target_user_id,
+        scene=parsed["scene"],
+        correct=parsed["correct"],
+    )
+    if existing is None:
+        record = await PersonaCorrection.create(
+            target_user_id=target_user_id,
+            scene=parsed["scene"],
+            wrong=parsed["wrong"],
+            correct=parsed["correct"],
+        )
+    else:
+        existing.wrong = parsed["wrong"]
+        await existing.save()
+        record = existing
+
+    await _refresh_profile_state(target_user_id)
+    return record, parsed
+
+
+async def refresh_profile_state(target_user_id: str) -> PersonaProfileState | None:
+    return await _refresh_profile_state(target_user_id)

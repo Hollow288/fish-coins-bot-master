@@ -10,6 +10,7 @@ class PersonaTarget(Model):
     enabled = fields.BooleanField(default=True, description="是否启用采集")
     auto_reply_enabled = fields.BooleanField(default=True, description="是否启用自动模仿回复")
     trigger_keywords_json = fields.JSONField(default=list, description="自动触发关键词")
+    manual_profile_json = fields.JSONField(default=dict, description="手工录入的人格资料")
     summary_batch_size = fields.IntField(default=30, description="触发总结的增量条数")
     last_summarized_message_id = fields.IntField(default=0, description="已总结到的消息ID")
     last_auto_reply_at = fields.DatetimeField(null=True, description="最近自动回复时间")
@@ -94,3 +95,18 @@ class PersonaProfileSnapshot(Model):
     class Meta:
         table = "persona_profile_snapshot"
         table_description = "人设画像快照"
+
+
+class PersonaCorrection(Model):
+    id = fields.IntField(pk=True, description="主键")
+    target_user_id = fields.CharField(max_length=32, index=True, description="目标QQ")
+    scene = fields.CharField(max_length=120, description="纠正场景")
+    wrong = fields.TextField(description="不像本人的错误表现")
+    correct = fields.TextField(description="更像本人的正确表现")
+    created_at = fields.DatetimeField(auto_now_add=True, description="创建时间")
+    updated_at = fields.DatetimeField(auto_now=True, description="更新时间")
+
+    class Meta:
+        table = "persona_correction"
+        table_description = "人设纠偏规则"
+        indexes = (("target_user_id", "updated_at"),)

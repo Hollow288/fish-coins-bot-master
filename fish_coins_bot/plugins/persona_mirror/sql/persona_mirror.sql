@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS `persona_target` (
   `enabled` TINYINT(1) NOT NULL DEFAULT 1 COMMENT '是否启用采集',
   `auto_reply_enabled` TINYINT(1) NOT NULL DEFAULT 1 COMMENT '是否启用自动模仿回复',
   `trigger_keywords_json` JSON NOT NULL COMMENT '自动触发关键词',
+  `manual_profile_json` JSON NOT NULL COMMENT '手工录入的人格资料',
   `summary_batch_size` INT NOT NULL DEFAULT 30 COMMENT '触发总结的增量条数',
   `last_summarized_message_id` INT NOT NULL DEFAULT 0 COMMENT '已总结到的消息ID',
   `last_auto_reply_at` DATETIME(6) NULL COMMENT '最近自动回复时间',
@@ -88,6 +89,19 @@ CREATE TABLE IF NOT EXISTS `persona_profile_snapshot` (
   KEY `idx_persona_profile_snapshot_target_user_id` (`target_user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='人设画像快照';
 
+CREATE TABLE IF NOT EXISTS `persona_correction` (
+  `id` INT NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `target_user_id` VARCHAR(32) NOT NULL COMMENT '目标QQ',
+  `scene` VARCHAR(120) NOT NULL COMMENT '纠正场景',
+  `wrong` TEXT NOT NULL COMMENT '不像本人的错误表现',
+  `correct` TEXT NOT NULL COMMENT '更像本人的正确表现',
+  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) COMMENT '创建时间',
+  `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6) COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_persona_correction_target_user_id` (`target_user_id`),
+  KEY `idx_persona_correction_target_updated_at` (`target_user_id`, `updated_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='人设纠偏规则';
+
 DELIMITER $$
 
 DROP PROCEDURE IF EXISTS `persona_mirror_sync_schema`$$
@@ -113,6 +127,17 @@ BEGIN
   ) THEN
     ALTER TABLE `persona_target`
       ADD COLUMN `trigger_keywords_json` JSON NULL COMMENT '自动触发关键词' AFTER `auto_reply_enabled`;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'persona_target'
+      AND COLUMN_NAME = 'manual_profile_json'
+  ) THEN
+    ALTER TABLE `persona_target`
+      ADD COLUMN `manual_profile_json` JSON NULL COMMENT '手工录入的人格资料' AFTER `trigger_keywords_json`;
   END IF;
 
   IF NOT EXISTS (
@@ -280,9 +305,14 @@ UPDATE `persona_target`
 SET `trigger_keywords_json` = JSON_ARRAY()
 WHERE `trigger_keywords_json` IS NULL;
 
+UPDATE `persona_target`
+SET `manual_profile_json` = JSON_OBJECT()
+WHERE `manual_profile_json` IS NULL;
+
 ALTER TABLE `persona_target`
   MODIFY COLUMN `auto_reply_enabled` TINYINT(1) NOT NULL DEFAULT 1 COMMENT '是否启用自动模仿回复',
   MODIFY COLUMN `trigger_keywords_json` JSON NOT NULL COMMENT '自动触发关键词',
+  MODIFY COLUMN `manual_profile_json` JSON NOT NULL COMMENT '手工录入的人格资料',
   MODIFY COLUMN `last_auto_reply_at` DATETIME(6) NULL COMMENT '最近自动回复时间';
 
 DELETE FROM `persona_asset`
