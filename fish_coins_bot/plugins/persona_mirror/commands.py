@@ -17,6 +17,7 @@ from .services.persona_service import (
     set_trigger_keywords,
 )
 from .services.summarizer_service import generate_reply, summarize_target
+from .utils import parse_inline_face_text
 
 
 def _is_admin(event: MessageEvent) -> bool:
@@ -289,8 +290,24 @@ async def handle_persona_speak(event: MessageEvent, args: Message = CommandArg()
         await persona_speak_cmd.finish(str(exc))
         return
 
-    message = Message(result["reply"])
-    face_id = result.get("face_id", "")
-    if face_id.isdigit():
+    reply_text = result.get("reply", "")
+    parsed = parse_inline_face_text(reply_text)
+    message = Message()
+    has_inline_face = False
+    for piece in parsed:
+        if piece["type"] == "text" and piece["value"]:
+            message += MessageSegment.text(piece["value"])
+        elif piece["type"] == "face":
+            try:
+                message += MessageSegment.face(int(piece["id"]))
+                has_inline_face = True
+            except ValueError:
+                continue
+
+    face_id = str(result.get("face_id", "")).strip()
+    if face_id.isdigit() and not has_inline_face:
         message += MessageSegment.face(int(face_id))
+
+    if not message:
+        await persona_speak_cmd.finish("AI 没生成可发送的内容。")
     await persona_speak_cmd.finish(message)

@@ -1,6 +1,7 @@
 import asyncio
 import random
 import time
+from typing import Any
 
 from nonebot import on_message
 from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent, Message, MessageSegment
@@ -11,7 +12,7 @@ from .models import PersonaAutoReplyLog, PersonaMessage, PersonaProfileState, Pe
 from .services.context_service import get_recent_group_context
 from .services.persona_service import get_effective_trigger_keywords
 from .services.summarizer_service import PersonaReplyError, generate_reply
-from .utils import message_segments_to_list, normalize_text, now_shanghai
+from .utils import message_segments_to_list, normalize_text, now_shanghai, parse_inline_face_text
 
 
 auto_persona_reply = on_message(priority=20, block=False)
@@ -248,23 +249,57 @@ async def handle_auto_persona_reply(bot: Bot, event: GroupMessageEvent) -> None:
     )
 
     reply_text = str(result.get("reply", ""))
-    face_id = result.get("face_id", "")
-    face_segment = MessageSegment.face(int(face_id)) if face_id.isdigit() else None
+    face_id = str(result.get("face_id", "")).strip()
+    fallback_face_segment = (
+        MessageSegment.face(int(face_id)) if face_id.isdigit() else None
+    )
 
-    # 按换行拆成多条消息，模拟连发效果；face 附在最后一条
-    segments = [line.strip() for line in reply_text.splitlines() if line.strip()]
+    # 把 reply 按换行拆成多条消息（连发效果），每行单独解析内联 [face:N]
+    line_segments_list: list[list[dict[str, Any]]] = []
+    for line in reply_text.splitlines():
+        stripped_line = line.strip()
+        if not stripped_line:
+            continue
+        parsed = parse_inline_face_text(stripped_line)
+        if parsed:
+            line_segments_list.append(parsed)
 
-    # 纯表情回复：没有文本时直接发表情
-    if not segments:
-        if face_segment is not None:
-            await bot.send(event, Message(face_segment))
+    has_inline_face = any(
+        piece["type"] == "face" for parsed in line_segments_list for piece in parsed
+    )
+
+    def _build_message_from_parsed(parsed: list[dict[str, Any]]) -> Message | None:
+        message = Message()
+        appended = False
+        for piece in parsed:
+            if piece["type"] == "text":
+                value = piece["value"]
+                if not value:
+                    continue
+                message += MessageSegment.text(value)
+                appended = True
+            elif piece["type"] == "face":
+                try:
+                    message += MessageSegment.face(int(piece["id"]))
+                    appended = True
+                except ValueError:
+                    continue
+        return message if appended else None
+
+    if not line_segments_list:
+        # 纯表情回复：reply 为空时用 fallback face_id 发一条
+        if fallback_face_segment is not None:
+            await bot.send(event, Message(fallback_face_segment))
     else:
-        for index, segment_text in enumerate(segments):
-            is_last = index == len(segments) - 1
-            segment_message = Message(segment_text)
-            if is_last and face_segment is not None:
-                segment_message += face_segment
-            await bot.send(event, segment_message)
+        for index, parsed in enumerate(line_segments_list):
+            is_last = index == len(line_segments_list) - 1
+            message = _build_message_from_parsed(parsed)
+            if message is None:
+                continue
+            # 只有 reply 中完全没有 inline face 时，才把旧版 face_id 兜底贴到最后一行
+            if is_last and fallback_face_segment is not None and not has_inline_face:
+                message += fallback_face_segment
+            await bot.send(event, message)
             if not is_last:
                 await asyncio.sleep(random.uniform(0.6, 1.4))
 

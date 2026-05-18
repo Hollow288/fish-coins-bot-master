@@ -5,7 +5,14 @@ from typing import Any, Callable
 from ..config import get_plugin_config
 from ..models import PersonaAsset, PersonaMessage, PersonaProfileSnapshot, PersonaProfileState, PersonaTarget
 from ..prompts import DEFAULT_PROFILE, build_speak_prompt, build_summary_prompt
-from ..utils import render_segments_as_text, safe_json_loads, similarity_score, top_items
+from ..utils import (
+    FACE_MEANINGS,
+    render_segments_as_text,
+    render_segments_for_ai,
+    safe_json_loads,
+    similarity_score,
+    top_items,
+)
 from .ai_client import call_text_model
 from .persona_service import get_effective_trigger_keywords
 
@@ -85,6 +92,18 @@ def _merge_profiles(
         new_emoji.get("qq_faces") or [],
         10,
     )
+    # 字符串字段：新画像有值就用新的，否则保留旧值
+    for scalar_field in ("usage_ratio", "standalone_use"):
+        new_value = str(new_emoji.get(scalar_field, "")).strip()
+        old_value = str(old_emoji.get(scalar_field, "")).strip()
+        merged_emoji[scalar_field] = new_value or old_value
+    # 列表字段做 union merge
+    for list_field, cap in (("position_preference", 6), ("scene_usage", 12)):
+        merged_emoji[list_field] = _merge_list_keep_tail(
+            old_emoji.get(list_field) or [],
+            new_emoji.get(list_field) or [],
+            cap,
+        )
     merged["emoji_habits"] = merged_emoji
 
     return merged
@@ -105,6 +124,10 @@ def _normalize_profile(profile: dict[str, Any] | None) -> dict[str, Any]:
         "habit_words": [],
         "emoji_habits": {
             "qq_faces": [],
+            "usage_ratio": "",
+            "position_preference": [],
+            "standalone_use": "",
+            "scene_usage": [],
         },
         "response_patterns": [],
         "topic_tendencies": [],
@@ -117,7 +140,7 @@ def _normalize_profile(profile: dict[str, Any] | None) -> dict[str, Any]:
         return merged
 
     sentence_style = profile.get("sentence_style", {})
-    emoji_habits = profile.get("emoji_habits", {})
+    emoji_habits = profile.get("emoji_habits", {}) or {}
 
     merged["tone"] = _normalize_list(profile.get("tone"))
     merged["sentence_style"] = {
@@ -132,6 +155,10 @@ def _normalize_profile(profile: dict[str, Any] | None) -> dict[str, Any]:
     merged["habit_words"] = _normalize_list(profile.get("habit_words"))
     merged["emoji_habits"] = {
         "qq_faces": _normalize_list(emoji_habits.get("qq_faces")),
+        "usage_ratio": str(emoji_habits.get("usage_ratio", "")).strip(),
+        "position_preference": _normalize_list(emoji_habits.get("position_preference")),
+        "standalone_use": str(emoji_habits.get("standalone_use", "")).strip(),
+        "scene_usage": _normalize_list(emoji_habits.get("scene_usage")),
     }
     merged["response_patterns"] = _normalize_list(profile.get("response_patterns"))
     merged["topic_tendencies"] = _normalize_list(profile.get("topic_tendencies"))
@@ -153,11 +180,24 @@ def _build_incremental_stats(messages: list[PersonaMessage]) -> dict[str, Any]:
     content_word_counter: Counter[str] = Counter()
     bigram_counter: Counter[str] = Counter()
     ending_counter: Counter[str] = Counter()
+    face_position_counter: Counter[str] = Counter()
     question_count = 0
     exclamation_count = 0
+    messages_with_face = 0
+    standalone_face_count = 0
+    total_face_segments = 0
 
     for feature in feature_list:
-        face_counter.update(str(item) for item in feature.get("face_ids", []))
+        face_ids_in_msg = [str(item) for item in feature.get("face_ids", [])]
+        face_counter.update(face_ids_in_msg)
+        if face_ids_in_msg:
+            messages_with_face += 1
+            total_face_segments += len(face_ids_in_msg)
+        if feature.get("is_standalone_face"):
+            standalone_face_count += 1
+        for pos in feature.get("face_positions", []) or []:
+            if pos:
+                face_position_counter[str(pos)] += 1
         seed_phrase_counter.update(str(item) for item in feature.get("seed_phrase_hits", feature.get("phrase_hits", [])))
         modal_counter.update(str(item) for item in feature.get("modal_words", []))
         punctuation_counter.update(
@@ -183,6 +223,16 @@ def _build_incremental_stats(messages: list[PersonaMessage]) -> dict[str, Any]:
     else:
         length_range = ""
 
+    face_usage_ratio = round(messages_with_face / sample_count, 3) if sample_count else 0
+    standalone_face_ratio = round(standalone_face_count / sample_count, 3) if sample_count else 0
+    avg_face_per_message_with_face = (
+        round(total_face_segments / messages_with_face, 2) if messages_with_face else 0
+    )
+    top_face_ids = top_items(face_counter, 8)
+    top_face_with_meaning = [
+        f"{fid}={FACE_MEANINGS.get(fid, '未知')}" for fid in top_face_ids
+    ]
+
     return {
         "sample_count": sample_count,
         "non_empty_text_count": len(non_empty_texts),
@@ -190,7 +240,12 @@ def _build_incremental_stats(messages: list[PersonaMessage]) -> dict[str, Any]:
         "typical_length_range": length_range,
         "question_ratio": round(question_count / sample_count, 3) if sample_count else 0,
         "exclamation_ratio": round(exclamation_count / sample_count, 3) if sample_count else 0,
-        "top_face_ids": top_items(face_counter, 5),
+        "top_face_ids": top_face_ids,
+        "top_face_with_meaning": top_face_with_meaning,
+        "face_usage_ratio": face_usage_ratio,
+        "standalone_face_ratio": standalone_face_ratio,
+        "avg_face_per_face_message": avg_face_per_message_with_face,
+        "face_position_distribution": dict(face_position_counter),
         "top_seed_phrases": top_items(seed_phrase_counter, 8),
         "top_modal_words": top_items(modal_counter, 8),
         "top_punctuation": top_items(punctuation_counter, 6),
@@ -361,7 +416,7 @@ async def _fetch_candidate_messages(
 
     total_count = await PersonaMessage.filter(target_user_id=target_user_id).count()
     if total_count <= recent_limit:
-        return [msg for msg in recent_messages if msg.plain_text]
+        return [msg for msg in recent_messages if msg.plain_text or _message_has_face(msg)]
 
     # 从更早的历史中随机采样
     recent_ids = {msg.id for msg in recent_messages}
@@ -371,12 +426,36 @@ async def _fetch_candidate_messages(
         .order_by("-id")
         .limit(history_sample * 3)
     )
-    older_with_text = [msg for msg in older_messages if msg.plain_text]
-    if len(older_with_text) > history_sample:
-        older_with_text = random.sample(older_with_text, history_sample)
+    older_with_content = [msg for msg in older_messages if msg.plain_text or _message_has_face(msg)]
+    if len(older_with_content) > history_sample:
+        older_with_content = random.sample(older_with_content, history_sample)
 
-    all_candidates = [msg for msg in recent_messages if msg.plain_text] + older_with_text
-    return all_candidates
+    recent_with_content = [msg for msg in recent_messages if msg.plain_text or _message_has_face(msg)]
+    return recent_with_content + older_with_content
+
+
+def _message_has_face(message: PersonaMessage) -> bool:
+    feature = message.feature_json or {}
+    return bool(feature.get("face_ids"))
+
+
+async def _fetch_face_heavy_samples(
+    target_user_id: str,
+    limit: int,
+    pool_size: int = 200,
+) -> list[PersonaMessage]:
+    """单独捞一批带 face 的样本，避免被纯文本检索挤掉。"""
+    if limit <= 0:
+        return []
+    candidates = await (
+        PersonaMessage.filter(target_user_id=target_user_id)
+        .order_by("-id")
+        .limit(pool_size)
+    )
+    face_messages = [msg for msg in candidates if _message_has_face(msg)]
+    if len(face_messages) <= limit:
+        return face_messages
+    return random.sample(face_messages, limit)
 
 
 def _infer_scene_type_from_trigger(trigger_reason: dict[str, Any] | None) -> str | None:
@@ -503,6 +582,13 @@ async def generate_reply(
     # 从扩大的候选池中检索相似消息
     candidate_messages = await _fetch_candidate_messages(target.target_user_id)
 
+    # 判断是否需要混入高表情样本：依据画像的 usage_ratio 或 stats
+    emoji_habits = (profile_state.current_profile_json or {}).get("emoji_habits") or {}
+    usage_ratio_text = str(emoji_habits.get("usage_ratio", "")).strip()
+    inject_face_samples = bool(emoji_habits.get("qq_faces")) or any(
+        kw in usage_ratio_text for kw in ("高", "经常", "频繁", "中", "适中")
+    )
+
     if search_query and candidate_messages:
         scored_messages = sorted(
             candidate_messages,
@@ -512,23 +598,55 @@ async def generate_reply(
     else:
         scored_messages = candidate_messages
 
+    sample_size = config.speak_sample_size
     similar_messages = [
         rendered
-        for message in scored_messages[: config.speak_sample_size]
-        if (rendered := render_segments_as_text(message.raw_segments_json))
+        for message in scored_messages[:sample_size]
+        if (rendered := render_segments_for_ai(message.raw_segments_json))
     ]
     if not similar_messages:
         similar_messages = [
             rendered
-            for message in candidate_messages[: config.speak_sample_size]
-            if (rendered := render_segments_as_text(message.raw_segments_json))
+            for message in candidate_messages[:sample_size]
+            if (rendered := render_segments_for_ai(message.raw_segments_json))
         ]
+
+    # 混入若干 face-heavy 样本，确保 AI 看到表情用法
+    if inject_face_samples:
+        face_sample_quota = max(2, sample_size // 3)
+        face_samples = await _fetch_face_heavy_samples(
+            target.target_user_id, limit=face_sample_quota
+        )
+        existing = set(similar_messages)
+        for msg in face_samples:
+            rendered = render_segments_for_ai(msg.raw_segments_json)
+            if rendered and rendered not in existing:
+                similar_messages.append(rendered)
+                existing.add(rendered)
 
     face_assets = await PersonaAsset.filter(
         target_user_id=target.target_user_id,
         asset_type="face",
-    ).order_by("-used_count").limit(5)
+    ).order_by("-used_count").limit(8)
     top_face_ids = [asset.face_id for asset in face_assets if asset.face_id]
+
+    # 算每个常用表情的相对占比：用全历史 face 使用总和作分母，让 AI 看到目标的偏好悬殊
+    all_face_counts = await PersonaAsset.filter(
+        target_user_id=target.target_user_id,
+        asset_type="face",
+    ).values_list("used_count", flat=True)
+    total_face_usage = sum(int(count or 0) for count in all_face_counts)
+    face_usage_stats: list[dict[str, Any]] = []
+    if total_face_usage > 0:
+        for asset in face_assets:
+            if not asset.face_id:
+                continue
+            count = int(asset.used_count or 0)
+            face_usage_stats.append({
+                "id": asset.face_id,
+                "count": count,
+                "share": round(count / total_face_usage, 4),
+            })
 
     # 提取历史对话片段
     current_scene_type = _infer_scene_type_from_trigger(trigger_reason)
@@ -548,6 +666,7 @@ async def generate_reply(
         top_face_ids=top_face_ids,
         conversation_snippets=conversation_snippets,
         trigger_reason=trigger_reason,
+        face_usage_stats=face_usage_stats,
     )
     result, raw_response = await _call_json_model(
         prompt,

@@ -1,6 +1,8 @@
 import json
 from typing import Any
 
+from .utils import FACE_MEANINGS, render_face_id_with_hint
+
 
 DEFAULT_PROFILE = {
     "tone": [],
@@ -16,6 +18,10 @@ DEFAULT_PROFILE = {
     "habit_words": [],
     "emoji_habits": {
         "qq_faces": [],
+        "usage_ratio": "",
+        "position_preference": [],
+        "standalone_use": "",
+        "scene_usage": [],
     },
     "response_patterns": [],
     "topic_tendencies": [],
@@ -66,7 +72,13 @@ def build_summary_prompt(
         "1. catchphrases 只保留目标真正反复使用的表达，不要填入通用网络流行语。\n"
         "   habit_words 保留高频用词和语气词组合。\n"
         f"2. negative_rules 写清楚不要模仿成什么样（例如{_LQ}不用书面语{_RQ}、{_LQ}不用敬语{_RQ}）。\n"
-        "3. emoji_habits.qq_faces 只保留最常见的表情ID字符串。\n"
+        "3. emoji_habits 必须根据 incremental_stats 中的表情数据认真填写所有子字段：\n"
+        f"   - qq_faces: 最常用的表情 ID 字符串，按使用频次降序，最多 8 个；\n"
+        f"   - usage_ratio: 根据 face_usage_ratio 选择{_LQ}很高{_RQ}（>=0.4）/{_LQ}较高{_RQ}（0.2-0.4）/"
+        f"{_LQ}中等{_RQ}（0.1-0.2）/{_LQ}较低{_RQ}（0.03-0.1）/{_LQ}极少{_RQ}（<0.03）；\n"
+        f"   - position_preference: 列出常见位置，如{_LQ}句尾{_RQ}、{_LQ}独立成条{_RQ}、{_LQ}夹在文中{_RQ}；\n"
+        f"   - standalone_use: 是否常单发表情（参考 standalone_face_ratio），写一句话；\n"
+        f"   - scene_usage: 列出{_LQ}什么情绪/场景下用哪个 ID{_RQ}，例如{_LQ}笑场用 178{_RQ}、{_LQ}无奈用 34{_RQ}。\n"
         "4. reply_constraints 写成生成回复时必须遵守的简短约束。\n"
         f"{context_instruction}"
         f"6. sentence_style.avg_length 填数字（如{_LQ}12{_RQ}），typical_length_range 填范围（如{_LQ}3-20{_RQ}）。\n"
@@ -99,6 +111,117 @@ def _build_length_hint(profile: dict[str, Any]) -> str:
     return "reply 保持口语化，长度控制在 8 到 35 个字"
 
 
+_USAGE_RATIO_KEYWORDS_HIGH = ("很高", "高", "经常", "频繁")
+_USAGE_RATIO_KEYWORDS_MID = ("中等", "适中", "时不时")
+_USAGE_RATIO_KEYWORDS_LOW = ("较低", "极少", "很少", "不太", "不常")
+
+
+def _build_face_usage_hint(profile: dict[str, Any], top_face_ids: list[str]) -> str:
+    """把画像中的表情习惯翻译成自然语言指引，避免 AI 默认不发表情。"""
+    emoji_habits = profile.get("emoji_habits", {}) or {}
+    usage_ratio = str(emoji_habits.get("usage_ratio", "")).strip()
+    position_preference = emoji_habits.get("position_preference") or []
+    standalone_use = str(emoji_habits.get("standalone_use", "")).strip()
+    scene_usage = emoji_habits.get("scene_usage") or []
+
+    lines: list[str] = []
+
+    # 频率指引
+    if not usage_ratio:
+        if top_face_ids:
+            lines.append("目标会用 QQ 表情，请按口语聊天的习惯自然地穿插表情，不要刻意省略。")
+    elif any(kw in usage_ratio for kw in _USAGE_RATIO_KEYWORDS_HIGH):
+        lines.append(
+            f"目标用表情频率{usage_ratio}，几乎每两三条就有一个表情，"
+            "本次回复请大概率带上表情；如果是连发多条，至少有一条带表情。"
+        )
+    elif any(kw in usage_ratio for kw in _USAGE_RATIO_KEYWORDS_MID):
+        lines.append(
+            f"目标用表情频率{usage_ratio}，本次回复约 1/3 概率带表情；"
+            "回复内容偏情绪化（如开心/无奈/调侃）时优先加表情。"
+        )
+    elif any(kw in usage_ratio for kw in _USAGE_RATIO_KEYWORDS_LOW):
+        lines.append(
+            f"目标用表情频率{usage_ratio}，本次回复绝大多数情况不带表情；"
+            "只在情绪表达强烈时才考虑加表情。"
+        )
+    else:
+        lines.append(f"目标用表情频率：{usage_ratio}，按这个比例自然使用表情。")
+
+    # 位置指引
+    if position_preference:
+        positions_text = "、".join(str(p) for p in position_preference if str(p).strip())
+        if positions_text:
+            lines.append(f"目标使用表情的位置偏好：{positions_text}，请遵循这个位置习惯。")
+
+    # 独立成条
+    if standalone_use:
+        lines.append(f"关于纯表情消息：{standalone_use}。")
+
+    # 场景映射
+    if scene_usage:
+        examples = "；".join(str(item) for item in scene_usage[:6] if str(item).strip())
+        if examples:
+            lines.append(f"场景对应的表情用法：{examples}。")
+
+    if not lines:
+        return ""
+    return "\n".join(f"   {line}" for line in lines)
+
+
+def _build_face_glossary(
+    top_face_ids: list[str],
+    emoji_habits: dict[str, Any],
+    face_usage_stats: list[dict[str, Any]] | None = None,
+) -> list[str]:
+    """生成表情 ID -> 语义的对照表，附带相对占比信息（若有）。"""
+    selected: list[str] = []
+    seen: set[str] = set()
+    share_lookup: dict[str, float] = {}
+    count_lookup: dict[str, int] = {}
+
+    if face_usage_stats:
+        for item in face_usage_stats:
+            fid = str(item.get("id", "")).strip()
+            if not fid:
+                continue
+            if fid not in seen:
+                selected.append(fid)
+                seen.add(fid)
+            try:
+                share_lookup[fid] = float(item.get("share", 0) or 0)
+            except (TypeError, ValueError):
+                share_lookup[fid] = 0.0
+            try:
+                count_lookup[fid] = int(item.get("count", 0) or 0)
+            except (TypeError, ValueError):
+                count_lookup[fid] = 0
+
+    for fid in top_face_ids:
+        fid_str = str(fid).strip()
+        if fid_str and fid_str not in seen:
+            selected.append(fid_str)
+            seen.add(fid_str)
+
+    profile_faces = emoji_habits.get("qq_faces") or []
+    for fid in profile_faces:
+        fid_str = str(fid).strip()
+        if fid_str and fid_str not in seen:
+            selected.append(fid_str)
+            seen.add(fid_str)
+
+    glossary: list[str] = []
+    for fid in selected:
+        meaning = FACE_MEANINGS.get(fid, "未知含义")
+        share = share_lookup.get(fid)
+        count = count_lookup.get(fid)
+        suffix = ""
+        if share and share > 0:
+            suffix = f"（约占 {share * 100:.0f}%, 累计 {count} 次）"
+        glossary.append(f"[face:{fid}] = {meaning}{suffix}")
+    return glossary
+
+
 def build_speak_prompt(
     target_identity: dict[str, Any],
     profile: dict[str, Any],
@@ -108,12 +231,32 @@ def build_speak_prompt(
     top_face_ids: list[str],
     conversation_snippets: list[dict[str, Any]] | None = None,
     trigger_reason: dict[str, Any] | None = None,
+    face_usage_stats: list[dict[str, Any]] | None = None,
 ) -> str:
     trigger_payload = trigger_reason or {}
     length_hint = _build_length_hint(profile)
 
     # 根据触发类型生成场景提示
     scene_hint = _build_scene_hint(trigger_payload)
+
+    # 表情使用指引（从画像里翻译出来）
+    emoji_habits = profile.get("emoji_habits", {}) or {}
+    face_usage_hint = _build_face_usage_hint(profile, top_face_ids)
+    face_usage_block = ""
+    if face_usage_hint:
+        face_usage_block = "9. 表情使用要求（必须遵守）:\n" + face_usage_hint + "\n"
+
+    # 表情语义对照表
+    face_glossary = _build_face_glossary(top_face_ids, emoji_habits, face_usage_stats)
+    face_glossary_block = (
+        "表情语义对照（你要根据语义选择，不能乱用 ID；括号里是该表情在目标全部历史表情使用中的占比）:\n"
+        + "\n".join(face_glossary)
+        if face_glossary
+        else "表情语义对照: 暂无目标常用表情，可以不带表情。"
+    )
+
+    # 历史样本里的表情对 AI 来说是 [face:N] 形式，配上语义提示更直观
+    top_faces_with_meaning = [render_face_id_with_hint(fid) for fid in top_face_ids]
 
     return (
         f"你现在的任务是{_LQ}在群聊里代替目标说一句像他的话{_RQ}。\n"
@@ -128,19 +271,27 @@ def build_speak_prompt(
         '  "reply": "",\n'
         '  "face_id": ""\n'
         "}\n\n"
+        "关于表情的输出方式（重要）:\n"
+        f"- 在 reply 文本中可以直接内联 QQ 表情，写法是 [face:数字ID]，比如{_LQ}笑死[face:178]{_RQ}。\n"
+        f"- 表情可以放在句首、句中、句尾，也可以独占一条消息（用换行分隔即可）。\n"
+        f"- 一条消息里可以出现多个表情，按目标的真实习惯来。\n"
+        f"- face_id 字段仅作为旧版兼容，可以留空；推荐全部在 reply 里内联。\n"
+        f"- 历史样本里的 [face:178/笑哭] 等写法是给你看的语义提示，你输出时只写 [face:178] 即可。\n\n"
         "约束:\n"
         f"1. {length_hint}。\n"
         "2. 风格要像熟人群聊随口接话，不要写成客服或公文。\n"
-        "3. 如果不适合用 QQ 表情，face_id 返回空字符串。\n"
-        "4. 不要输出任何图片素材或自定义表情包相关内容。\n"
-        f"5. 仔细看下面的{_LQ}历史原话风格参考{_RQ}，你的 reply 必须在语气、句式、标点、用词习惯上"
+        "3. 不要输出任何图片素材、表情包或自定义贴纸相关内容，只能用 QQ 默认表情的 [face:数字] 形式。\n"
+        f"4. 仔细看下面的{_LQ}历史原话风格参考{_RQ}，你的 reply 必须在语气、句式、标点、用词习惯上"
         "尽量接近这些真实发言的风格，但不要照抄内容。\n"
-        "6. 特别注意画像中的 ending_habits 和 punctuation，"
+        "5. 特别注意画像中的 ending_habits 和 punctuation，"
         "句尾风格要和目标保持一致（比如目标从不加句号你也不要加）。\n"
-        "7. 重点参考下面的「目标历史对话片段」，这些片段展示了目标在类似场景下怎么接话。\n"
+        "6. 重点参考下面的「目标历史对话片段」，这些片段展示了目标在类似场景下怎么接话。\n"
         "   观察目标的接话节奏：他是一条消息说完，还是习惯连发好几条短消息。\n"
         "   如果片段中 target_replies 有多条，说明目标习惯连发，你的 reply 也应该用换行分成多条短句。\n"
         "   如果片段中有 reply_to，说明目标在回应某条具体消息，参考他回应的方式和语气。\n"
+        "7. 选用表情时务必结合下方「表情语义对照」，挑情绪/场景匹配的 ID，绝不能随便填 ID。\n"
+        "8. 不要把所有句子塞同一个表情，按目标真实的位置和频率习惯使用。\n"
+        f"{face_usage_block}"
         f"{scene_hint}\n\n"
         f"目标身份信息:\n{json.dumps(target_identity, ensure_ascii=False, indent=2)}\n\n"
         f"当前触发信息:\n{json.dumps(trigger_payload, ensure_ascii=False, indent=2)}\n\n"
@@ -150,7 +301,8 @@ def build_speak_prompt(
         f"{json.dumps(similar_messages, ensure_ascii=False, indent=2)}\n\n"
         f"目标历史对话片段（展示他在类似场景下怎么接话，重点参考）:\n"
         f"{json.dumps(conversation_snippets or [], ensure_ascii=False, indent=2)}\n\n"
-        f"常用 QQ 表情 ID:\n{json.dumps(top_face_ids, ensure_ascii=False)}\n\n"
+        f"常用 QQ 表情（带语义）:\n{json.dumps(top_faces_with_meaning, ensure_ascii=False)}\n\n"
+        f"{face_glossary_block}\n\n"
         f"这次显性意图 explicit_intent:\n{intent_text}"
     )
 
