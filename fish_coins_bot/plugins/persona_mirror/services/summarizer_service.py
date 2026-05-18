@@ -552,7 +552,10 @@ async def generate_reply(
     result, raw_response = await _call_json_model(
         prompt,
         memory_prefix=f"persona-speak-{target.target_user_id}",
-        validator=lambda payload: bool(str(payload.get("reply", "")).strip()),
+        validator=lambda payload: bool(
+            str(payload.get("reply", "")).strip()
+            or str(payload.get("face_id", "")).strip()
+        ),
     )
     if raw_response is None:
         raise PersonaReplyError("AI 模仿接口调用失败。", raw_response=None)
@@ -561,7 +564,7 @@ async def generate_reply(
 
     reply = str(result.get("reply", "")).strip()
     face_id = str(result.get("face_id", "")).strip()
-    if not reply:
+    if not reply and not face_id:
         raise PersonaReplyError("AI 没有生成有效回复。", raw_response=raw_response)
 
     return (

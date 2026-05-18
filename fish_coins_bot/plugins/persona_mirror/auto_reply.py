@@ -253,17 +253,20 @@ async def handle_auto_persona_reply(bot: Bot, event: GroupMessageEvent) -> None:
 
     # 按换行拆成多条消息，模拟连发效果；face 附在最后一条
     segments = [line.strip() for line in reply_text.splitlines() if line.strip()]
-    if not segments:
-        segments = [reply_text]
 
-    for index, segment_text in enumerate(segments):
-        is_last = index == len(segments) - 1
-        segment_message = Message(segment_text)
-        if is_last and face_segment is not None:
-            segment_message += face_segment
-        await bot.send(event, segment_message)
-        if not is_last:
-            await asyncio.sleep(random.uniform(0.6, 1.4))
+    # 纯表情回复：没有文本时直接发表情
+    if not segments:
+        if face_segment is not None:
+            await bot.send(event, Message(face_segment))
+    else:
+        for index, segment_text in enumerate(segments):
+            is_last = index == len(segments) - 1
+            segment_message = Message(segment_text)
+            if is_last and face_segment is not None:
+                segment_message += face_segment
+            await bot.send(event, segment_message)
+            if not is_last:
+                await asyncio.sleep(random.uniform(0.6, 1.4))
 
     # 刷新数据库中的 target 记录（缓存的对象可能已过期）
     fresh_target = await PersonaTarget.get_or_none(id=target.id)
