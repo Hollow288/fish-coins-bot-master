@@ -1,6 +1,4 @@
-import json
 import os
-import re
 from pathlib import Path
 from typing import Optional
 
@@ -27,7 +25,7 @@ agent_ask = on_command(
 
 
 async def call_agent_ask_api(message: str, retries: int = 3) -> Optional[dict]:
-    """调用 /api/v1/agent/ask 接口, 解析 data.reply 后返回 dict; 失败返回 None."""
+    """调用 /api/v1/agent/ask 接口, 校验 agent 是 alias 后返回 answerData; 失败返回 None."""
     if not AGENT_ASK_URI or not AGENT_ASK_APIKEY:
         logger.error("AGENT_ASK_URI 或 AGENT_ASK_APIKEY 未配置")
         return None
@@ -51,19 +49,19 @@ async def call_agent_ask_api(message: str, retries: int = 3) -> Optional[dict]:
                     logger.error(f"agent ask 接口返回非200: {data}")
                     continue
 
-                reply = data.get("data", {}).get("reply")
-                if not reply:
-                    logger.error(f"agent ask 接口缺少 data.reply: {data}")
+                payload = data.get("data") or {}
+                agent = payload.get("agent")
+                if agent != "alias":
+                    # Router 派给了别的 agent, answerData 结构对不上, 不要硬塞给下游
+                    logger.error(f"agent ask 路由派错: 期望 alias, 实际 {agent}, payload={payload}")
+                    return None
+
+                answer_data = payload.get("answerData")
+                if not isinstance(answer_data, dict):
+                    logger.error(f"agent ask 接口 answerData 异常: {payload}")
                     continue
 
-                try:
-                    return json.loads(reply)
-                except json.JSONDecodeError:
-                    # 兜底: AI 偶尔会带前后缀, 正则提取 {...}
-                    match = re.search(r"\{[\s\S]*\}", reply)
-                    if match:
-                        return json.loads(match.group(0))
-                    logger.error(f"reply 解析失败: {reply}")
+                return answer_data
             except Exception as e:
                 logger.error(f"agent ask 第 {attempt + 1} 次失败: {e}")
                 if response_text:

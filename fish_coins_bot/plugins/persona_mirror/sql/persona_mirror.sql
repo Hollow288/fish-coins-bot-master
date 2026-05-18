@@ -1,6 +1,23 @@
 -- persona_mirror 统一建表/升级脚本
 -- 新装数据库和旧版本升级都执行这一份。
 
+
+  CREATE TABLE `persona_auto_reply_log` (
+    `id` INT NOT NULL PRIMARY KEY AUTO_INCREMENT COMMENT '主键',
+    `target_user_id` VARCHAR(32) NOT NULL COMMENT '被模仿目标QQ',
+    `group_id` VARCHAR(32) NULL COMMENT '触发所在群号',
+    `trigger_user_id` VARCHAR(32) NOT NULL COMMENT '触发用户QQ',
+    `trigger_user_name` VARCHAR(100) NULL COMMENT '触发用户昵称',
+    `ai_response` LONGTEXT NULL COMMENT 'AI接口完整返回',
+    `success` BOOL NOT NULL DEFAULT 1 COMMENT '是否成功生成回复',
+    `error_message` TEXT NULL COMMENT '失败时的错误信息',
+    `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) COMMENT '触发时间',
+    KEY `idx_persona_auto_reply_log_target` (`target_user_id`),
+    KEY `idx_persona_auto_reply_log_group` (`group_id`),
+    KEY `idx_persona_auto_reply_log_trigger` (`trigger_user_id`),
+    KEY `idx_persona_auto_reply_log_created` (`created_at`)
+  ) CHARACTER SET utf8mb4 COMMENT='人设自动回复触发日志';
+
 CREATE TABLE IF NOT EXISTS `persona_target` (
   `id` INT NOT NULL AUTO_INCREMENT COMMENT '主键',
   `owner_user_id` VARCHAR(32) NOT NULL COMMENT '绑定该目标的管理员QQ',

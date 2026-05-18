@@ -7,10 +7,10 @@ from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent, Message, Message
 from nonebot.log import logger
 
 from .config import get_auto_reply_cooldown, get_plugin_config
-from .models import PersonaMessage, PersonaProfileState, PersonaTarget
+from .models import PersonaAutoReplyLog, PersonaMessage, PersonaProfileState, PersonaTarget
 from .services.context_service import get_recent_group_context
 from .services.persona_service import get_effective_trigger_keywords
-from .services.summarizer_service import generate_reply
+from .services.summarizer_service import PersonaReplyError, generate_reply
 from .utils import message_segments_to_list, normalize_text, now_shanghai
 
 
@@ -35,6 +35,31 @@ def invalidate_target_cache() -> None:
     """供其他模块在修改 target 状态后调用。"""
     global _target_cache_ts
     _target_cache_ts = 0.0
+
+
+async def _record_auto_reply_log(
+    *,
+    target_user_id: str,
+    group_id: str,
+    trigger_user_id: str,
+    trigger_user_name: str,
+    ai_response: str | None,
+    success: bool,
+    error_message: str | None,
+) -> None:
+    try:
+        await PersonaAutoReplyLog.create(
+            target_user_id=target_user_id,
+            group_id=group_id,
+            trigger_user_id=trigger_user_id,
+            trigger_user_name=trigger_user_name,
+            ai_response=ai_response,
+            success=success,
+            error_message=error_message,
+        )
+    except Exception as exc:
+        # 日志写失败不能阻断主流程
+        logger.error(f"persona_mirror 自动回复日志写入失败 {target_user_id}: {exc}")
 
 
 def _extract_trigger_payload(event: GroupMessageEvent, target: PersonaTarget) -> dict | None:
@@ -179,16 +204,48 @@ async def handle_auto_persona_reply(bot: Bot, event: GroupMessageEvent) -> None:
         "raw_trigger_message": selected["raw_intent_text"],
     }
 
+    trigger_user_name = event.sender.card or event.sender.nickname or str(event.user_id)
     try:
-        result = await generate_reply(
+        result, raw_response = await generate_reply(
             target,
             selected["intent_text"],
             recent_chat_messages=recent_chat_messages,
             trigger_reason=trigger_reason,
         )
+    except PersonaReplyError as exc:
+        logger.error(f"persona_mirror 自动回复失败 {target.target_user_id}: {exc}")
+        await _record_auto_reply_log(
+            target_user_id=target.target_user_id,
+            group_id=str(event.group_id),
+            trigger_user_id=str(event.user_id),
+            trigger_user_name=trigger_user_name,
+            ai_response=exc.raw_response,
+            success=False,
+            error_message=str(exc),
+        )
+        return
     except Exception as exc:
         logger.error(f"persona_mirror 自动回复失败 {target.target_user_id}: {exc}")
+        await _record_auto_reply_log(
+            target_user_id=target.target_user_id,
+            group_id=str(event.group_id),
+            trigger_user_id=str(event.user_id),
+            trigger_user_name=trigger_user_name,
+            ai_response=None,
+            success=False,
+            error_message=str(exc),
+        )
         return
+
+    await _record_auto_reply_log(
+        target_user_id=target.target_user_id,
+        group_id=str(event.group_id),
+        trigger_user_id=str(event.user_id),
+        trigger_user_name=trigger_user_name,
+        ai_response=raw_response,
+        success=True,
+        error_message=None,
+    )
 
     reply_text = str(result.get("reply", ""))
     face_id = result.get("face_id", "")

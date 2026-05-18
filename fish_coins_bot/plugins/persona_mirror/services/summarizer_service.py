@@ -467,12 +467,20 @@ async def _fetch_conversation_snippets(
     return top_snippets[:limit]
 
 
+class PersonaReplyError(RuntimeError):
+    """generate_reply 失败时抛出, 携带 AI 原始返回, 便于上层落日志."""
+
+    def __init__(self, message: str, raw_response: str | None = None) -> None:
+        super().__init__(message)
+        self.raw_response = raw_response
+
+
 async def generate_reply(
     target: PersonaTarget,
     intent_text: str,
     recent_chat_messages: list[dict[str, Any]] | None = None,
     trigger_reason: dict[str, Any] | None = None,
-) -> dict[str, str]:
+) -> tuple[dict[str, str], str]:
     config = get_plugin_config()
     profile_state = await PersonaProfileState.get_or_none(target_user_id=target.target_user_id)
     if profile_state is None or not profile_state.current_profile_json:
@@ -547,16 +555,19 @@ async def generate_reply(
         validator=lambda payload: bool(str(payload.get("reply", "")).strip()),
     )
     if raw_response is None:
-        raise RuntimeError("AI 模仿接口调用失败。")
+        raise PersonaReplyError("AI 模仿接口调用失败。", raw_response=None)
     if result is None:
-        raise RuntimeError("AI 模仿结果不是合法 JSON。")
+        raise PersonaReplyError("AI 模仿结果不是合法 JSON。", raw_response=raw_response)
 
     reply = str(result.get("reply", "")).strip()
     face_id = str(result.get("face_id", "")).strip()
     if not reply:
-        raise RuntimeError("AI 没有生成有效回复。")
+        raise PersonaReplyError("AI 没有生成有效回复。", raw_response=raw_response)
 
-    return {
-        "reply": reply,
-        "face_id": face_id,
-    }
+    return (
+        {
+            "reply": reply,
+            "face_id": face_id,
+        },
+        raw_response,
+    )

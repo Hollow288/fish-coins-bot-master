@@ -279,7 +279,7 @@ async def handle_persona_speak(event: MessageEvent, args: Message = CommandArg()
             )
             trigger_reason["group_id"] = str(event.group_id)
 
-        result = await generate_reply(
+        result, _ = await generate_reply(
             target,
             intent_text,
             recent_chat_messages=recent_chat_messages,
