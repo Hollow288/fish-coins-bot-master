@@ -1,4 +1,7 @@
 from nonebot.adapters.onebot.v11 import GroupMessageEvent, PrivateMessageEvent
+from nonebot.log import logger
+
+from fish_coins_bot.utils.downloads import save_persona_group_stickers
 
 from ..models import PersonaAsset, PersonaMessage, PersonaTarget
 from ..utils import (
@@ -76,6 +79,14 @@ async def collect_message_event(event: GroupMessageEvent | PrivateMessageEvent) 
 
     raw_segments = message_segments_to_list(event.message)
     plain_text = event.get_plaintext().strip()
+
+    # 发送者已经确认是启用中的被模仿人；在采集过滤前处理表情包，
+    # 避免目标单发表情包/图片时被下面的纯媒体过滤跳过。
+    if isinstance(event, GroupMessageEvent):
+        try:
+            await save_persona_group_stickers(event, target_user_ids=[target_user_id])
+        except Exception as exc:
+            logger.error(f"persona_mirror 表情包保存入口执行失败 {target_user_id}: {exc}")
 
     # 如果消息没有文本内容，且只包含无法理解的媒体类型（表情包/图片等），跳过采集
     if not plain_text:

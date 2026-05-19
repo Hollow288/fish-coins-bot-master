@@ -1,281 +1,157 @@
-#### 1. python
+# fish-coins-bot
 
-##### 1. 1 可选依赖
+基于 NoneBot2 和 OneBot v11 的 QQ 群机器人。当前插件都位于 `fish_coins_bot/plugins`。
 
-```
-tortoise-orm[asyncpg]>=0.19.3
-```
+## 插件清单
 
-- 方括号中的内容是 **可选依赖项**（extras）。
+### hotta_wiki
 
-- 在这个例子中，`asyncpg` 是一个高性能的 PostgreSQL 异步驱动程序，用于支持 Tortoise-ORM 连接到 **PostgreSQL **数据库。
+幻塔相关插件，入口为 `fish_coins_bot/plugins/hotta_wiki/__init__.py`。
 
-- 声明 `[asyncpg]` 表示安装 `tortoise-orm` 时会同时安装 `asyncpg` 作为依赖。
-- 这有点类似于maven中的**optional**，依赖不会被全部引入，必须显式声明，才会被引入
+主要功能：
 
-#### 2. pyproject
+- 图鉴图片查询
+- 活动资讯图片生成和推送
+- 抽卡模拟
+- 帮助菜单
+- 每月特殊凭证提醒
 
-##### 2.1. 类似于maven的依赖管理器？
+群聊指令：
 
-使用 pip安装：
+| 指令 | 别名 | 说明 |
+| --- | --- | --- |
+| `@机器人 帮助` | `help`、`菜单` | 发送帮助菜单图片 |
+| `武器图鉴 <名称>` | `武器信息` | 查询武器图鉴 |
+| `武器详情 <名称>` | `武器攻击`、`武器模组图鉴`、`模组图鉴`、`攻击模组图鉴`、`攻击图鉴`、`武器模组` | 查询武器详情/模组图鉴 |
+| `意志图鉴 <名称>` | `意志` | 查询意志图鉴 |
+| `源器图鉴 <名称>` | `源器` | 查询源器图鉴 |
+| `食物图鉴 <名称>` | `食谱`、`食材图鉴`、`食材`、`烹饪图鉴`、`食物` | 查询食物/食材图鉴 |
+| `时装图鉴 <名称>` | `时装` | 查询时装图鉴 |
+| `活动资讯` | `近期活动`、`塔塔活动` | 发送近期活动图 |
+| `塔塔抽卡` | `幻塔抽卡`、`幻塔十连`、`塔塔十连` | 每个 QQ 每天一次十连模拟 |
 
-```
-pip install poetry 
-```
+自动行为：
 
-查看版本，是否安装成功：
+- 戳一戳机器人：按当前时间回复问候和帮助提示。
+- 回复机器人消息：提示发送帮助。
+- 定时生成活动资讯图。
+- 活动即将结束时向所有群推送提醒图。
+- 每月最后一天推送特殊凭证提醒。
 
-```
-poetry --version
-```
+相关文件：
 
-在项目文件夹初始化项目，然后会出来一些对话，填一些项目的基本信息并初始化pyproject.toml文件：
+- `fish_coins_bot/plugins/hotta_wiki/alias.json`：武器、意志、源器别名。
+- `fish_coins_bot/plugins/hotta_wiki/gacha_config.json`：抽卡配置。
+- `screenshots/`：图鉴图片和生成图片。
 
-```
-poetry init
-```
+### bilibili
 
-使用poetry安装依赖，依赖会自动被pyproject.toml文件和poetry.lock文件记录：
+B 站直播和动态推送插件，入口为 `fish_coins_bot/plugins/bilibili/__init__.py`。
 
-```
-poetry add <package-name>
-```
+主要功能：
 
-进入虚拟环境：
+- 监听直播间状态，开播时推送直播卡片图，下播时推送直播时长。
+- 监听 B 站用户动态，发现新动态后截图并推送到配置群。
 
-```
-poetry shell
-```
+相关文件：
 
-控制台会变成这样：
+- `fish_coins_bot/plugins/bilibili/dynamics_list.json`：动态推送配置，格式为 `{"B站UID": [群号1, 群号2]}`。
+- `bot_live_state` 表：直播间和推送群配置。
+- `dynamics_history` 表：动态去重记录。
 
-```
-(fish-coins-bot-master-py3.13) PS C:\XM\MY\fish-coins-bot-master> 
-```
+### delta_force
 
-在虚拟环境中启动项目：
+三角洲行动密码房插件，入口为 `fish_coins_bot/plugins/delta_force/__init__.py`。
 
-```
-python main.py
-```
+群聊指令：
 
-##### 2.2 设置pycharm环境：
+| 指令 | 别名 | 说明 |
+| --- | --- | --- |
+| `密码房密码` | `密码房`、`三角洲密码房`、`三角洲密码`、`三角洲钥匙房`、`鼠鼠行动密码房`、`密码`、`今日密码` | 查询并渲染密码房密码图 |
 
-查看虚拟环境的位置：
+相关文件：
 
-```
-poetry env info --path
-```
+- `fish_coins_bot/plugins/delta_force/delta_force_request.json`：密码接口 URL 和请求头配置。
 
-setting中搜索python interpreter,然后add interpreter->add local  interpreter ->select existing ->选择虚拟环境位置下的Scripts\python.exe
+### ai_chat
 
-#### 3. docker
+私聊 AI 工具插件，入口为 `fish_coins_bot/plugins/ai_chat/__init__.py`。
 
-##### 3.1 windows制作镜像
+这些指令只响应私聊，并且只有 `ADMIN_ID` 能使用。
 
-先下载Docker Desktop
+| 指令 | 别名 | 说明 |
+| --- | --- | --- |
+| `chat <文本>` | `ai` | 调用文本 AI 接口 |
+| `image <提示词>` | `images` | 从当前消息取第一张图片，调用图片接口后返回图片 |
+| `remove <文本>` | `clear` | 调用去文字/清理文本接口 |
 
-编写Dockerfile放到项目下面：
+### agent
 
-```
-# 使用官方 Python 3.13 作为基础镜像
-FROM python:3.13-slim
+图鉴别名 Agent 查询插件，入口为 `fish_coins_bot/plugins/agent/__init__.py`。
 
-# 设置工作目录
-WORKDIR /app
+指令：
 
-# 安装系统依赖，Poetry 和其他必要工具
-RUN apt-get update && \
-    apt-get install -y \
-    build-essential \
-    libpq-dev \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
-
-# 安装 Poetry
-RUN curl -sSL https://install.python-poetry.org | python3 -
-
-# 设置 Poetry 为全局可用
-ENV PATH="/root/.local/bin:$PATH"
-
-# 复制 Poetry 的配置文件
-COPY pyproject.toml poetry.lock /app/
-
-# 安装项目依赖
-RUN poetry install
-
-# 复制项目源代码到工作目录
-COPY . /app/
-
-# 设置环境变量（例如：NoneBot 配置文件路径）
-# ENV NONEBOT_CONFIG=/app/config.yaml
-
-# 容器启动时执行命令
-CMD ["poetry", "run", "python3", "bot.py"]
-
+```text
+agent <自然语言查询>
 ```
 
-在项目目录制作镜像：
+插件会调用外部 Agent 接口识别查询目标，返回标准图鉴名称后发送对应图片。
 
-```
-docker build -t nonebot-docker:python3.13 .
-```
+支持类型：
 
-打成tar包
+- `武器`：发送武器图鉴或武器详情图。
+- `意志`：发送意志图鉴。
+- `源器`：发送源器图鉴。
 
-```
-docker save -o nonebot-docker.tar nonebot-docker:python3.13
-```
+### download
 
-在centos上加载镜像
+私聊视频下载插件，入口为 `fish_coins_bot/plugins/download/__init__.py`。
 
-```
-docker load < /usr/src/nonebot-docker.tar
-```
+这些指令只响应私聊，并且只有 `ADMIN_ID` 能使用。
 
-运行
+| 指令 | 别名 | 说明 |
+| --- | --- | --- |
+| `下载视频 <url>` | `视频` | 后台调用 `yt-dlp` 下载视频，并尝试同步到 MinIO |
 
-```
-docker run -d --name nonebot-container -p 8080:8080 -v /opt/nonebot/.env:/app/.env nonebot-docker:python3.13
-```
+### persona_mirror
 
-##### 3.2 使用 GitHub Actions
+人设模仿插件，入口为 `fish_coins_bot/plugins/persona_mirror/__init__.py`。
 
-（也要有DockerFile）项目下创建.github/workflows/deploy.yml文件（这里只实现了持续集成，没有持续部署）
+主要功能：
 
-```
-name: Deploy to Remote Server
+- 绑定一个或多个被模仿目标 QQ。
+- 持续采集目标发言、QQ 内建表情、回复关系、上下文和场景特征。
+- 定时或手动总结目标画像。
+- 群聊中有人 @ 目标、回复目标或提到目标关键词时，自动用目标风格回复。
+- 记录目标常用 QQ 内建表情。
+- 保存目标发送过的图片表情包，并记录使用次数。
 
-on:
-  push:
-    branches:
-      - master  # 仅当代码推送到 master 分支时触发
+管理指令：
 
-jobs:
-  build:
-    runs-on: ubuntu-latest  # 使用 GitHub 提供的最新 Ubuntu 环境
+| 指令 | 别名 | 说明 |
+| --- | --- | --- |
+| `人设帮助` | `persona帮助` | 查看插件指令 |
+| `人设绑定 <QQ号> [备注名]` | `persona_bind` | 绑定采集目标 |
+| `人设开启 <QQ号>` | `persona_on` | 开启采集和自动回复 |
+| `人设关闭 <QQ号>` | `persona_off` | 关闭采集和自动回复 |
+| `人设关键词 <QQ号> <关键词1> [关键词2] ...` | `persona_keywords` | 设置自动触发关键词 |
+| `人设看关键词 [QQ号]` | `persona_show_keywords` | 查看触发关键词 |
+| `人设状态` | `persona_status` | 查看目标状态、消息数和常用 QQ 内建表情 |
+| `人设总结 [QQ号]` | `persona_summary` | 强制生成画像摘要 |
+| `模仿冷却 [秒数]` | `persona_cooldown` | 查看或临时修改自动回复冷却 |
+| `学他说话 [QQ号] <想表达的话>` | `persona_speak` | 手动生成一条目标风格回复 |
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v2  # 获取仓库代码
+表情记录：
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
+- QQ 内建表情，即 OneBot `face` 段，记录到 `persona_asset`，保存 `face_id` 和 `used_count`。
+- 图片/表情包，即带 `url` 的 `image`、`mface`、`marketface` 段，下载后按内容 `sha256` 去重，保存到 MinIO，并写入 `persona_sticker_asset`。
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2  # 配置 Docker 构建工具
+相关表：
 
-      - name: Build Docker image
-        run: |
-          docker build -t hollow288/nonebot-docker:latest .  # 使用 Dockerfile 构建镜像
-
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}  # GitHub Secrets 中配置的 Docker Hub 用户名
-          password: ${{ secrets.DOCKER_PASSWORD }}  # GitHub Secrets 中配置的 Docker Hub 密码
-
-      - name: Push Docker image to Docker Hub
-        run: |
-          docker push hollow288/nonebot-docker:latest  # 推送到 Docker Hub
-
-# 持续部署 没有实现
-#  deploy:
-#    runs-on: ubuntu-latest
-#
-#    needs: build  # 需要在构建镜像后才执行部署
-#
-#    steps:
-#      - name: Checkout code
-#        uses: actions/checkout@v2
-#
-#      - name: Set up SSH
-#        uses: appleboy/ssh-action@v0.1.5  # 使用 SSH 连接远程服务器
-#        with:
-#          host: ${{ secrets.SERVER_IP }}  # 远程服务器 IP 地址，使用 GitHub Secrets
-#          username: ${{ secrets.SERVER_USER }}  # 远程服务器用户名，使用 GitHub Secrets
-#          key: ${{ secrets.SERVER_SSH_KEY }}  # SSH 密钥，使用 GitHub Secrets
-#          port: 22  # 如果使用非标准端口，修改端口号
-#
-#      - name: Deploy to remote server
-#        run: |
-#          ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} "
-#          docker pull my-docker-image:latest &&
-#          docker stop nonebot-container &&
-#          docker rm nonebot-container &&
-#          docker run -d --name nonebot-container -p 8080:8080 my-docker-image:latest"  # 拉取并运行新的镜像
-
-```
-
-创建Docker Hub账号并创建一个仓库叫`nonebot-docker`，`hollow288`是用户名
-
- GitHub 仓库的 **Settings** > **Secrets and variables** > **Actions** 中添加 `DOCKER_USERNAME` 和 `DOCKER_PASSWORD`
-
-然后提交代码到`master`分支的时候，就会自动构建docker镜像到Docker Hub
-
-服务器拉取镜像
-
-```
-docker pull hollow288/nonebot-docker:latest
-```
-
-运行：
-
-```
-docker run -d --name nonebot-container -p 8080:8080   -v /opt/nonebot/.env:/app/.env   -v /opt/nonebot/screenshots:/app/screenshots   -v /opt/nonebot/alias.json:/app/fish_coins_bot/plugins/hotta_wiki/alias.json  -v /opt/nonebot/delta_force_request.json:/app/fish_coins_bot/plugins/delta_force/delta_force_request.json  hollow288/nonebot-docker:latest
-```
-
-
-
-#### 4.  NapCat&NoneBot
-
-##### 4.1 启动！
-
-napcat 启动：
-
-```
-docker run -d \
--e NAPCAT_GID=$(id -g) \
--e NAPCAT_UID=$(id -u) \
--p 3000:3000 \
--p 3001:3001 \
--p 6099:6099 \
---name napcat \
---restart=always \
--v /opt/napcat/data:/app/.config/QQ \
--v /opt/napcat/config:/app/napcat/config \
--v /opt/nonebot/screenshots:/app/screenshots \
-mlikiowa/napcat-docker:latest
-```
-
-
-
-
-
-nc和nb都部署后：
-
-```
-docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' 249e90c35dc2
-```
-
-查看地址为：172.17.0.3
-
-nc配置反向ws地址为：ws://172.17.0.3:8080/onebot/v11/ws
-
-
-
-##### 4.2 其他说明
-
-在hotta_wiki插件中，我们生成的图片路径是在nonebot文件路径下的screenshots文件夹中，我们发给napcat的文件路径是这样的：
-
-```
-image_path = Path("/app/screenshots") / f"{arms_name}.png"
-image_message = MessageSegment.image(f"file://{image_path}")
-```
-
-所以napcat会去找自己文件目录下的screenshots文件夹，当然是找不到，所以，我们将本地的screenshots文件夹同时挂载到napcat和nonebot上：
-
-```
--v /opt/nonebot/screenshots:/app/screenshots
-```
-
+- `persona_target`：被模仿目标。
+- `persona_message`：采集到的原始消息。
+- `persona_asset`：QQ 内建表情使用记录。
+- `persona_sticker_asset`：图片表情包使用记录。
+- `persona_profile_state`：当前画像。
+- `persona_profile_snapshot`：画像快照。
+- `persona_auto_reply_log`：自动回复日志。
