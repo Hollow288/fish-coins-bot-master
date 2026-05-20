@@ -369,7 +369,7 @@
 
 ### 4.6 AI 接口调用细节
 
-`ai_client.py` 的 `call_text_model` 负责与外部 AI 服务通信：
+复用 `fish_coins_bot/utils/ai_client.py` 的 `call_text_api`，本插件传 `fresh_memory_each_retry=True` 以确保每次重试都使用全新 `memoryId`：
 
 - **请求格式**：POST 请求，body 为 `{"message": "prompt文本", "memoryId": "唯一ID"}`
 - **认证**：通过 `X-API-KEY` header 传递 API Key
@@ -393,7 +393,6 @@ fish_coins_bot/plugins/persona_mirror/
 ├── scheduler.py               # 定时画像总结任务
 ├── utils.py                   # 工具函数（分词、相似度、特征提取、JSON 解析等）
 ├── services/
-│   ├── ai_client.py           # AI 文本接口调用（重试、错误处理）
 │   ├── collector_service.py   # 消息采集核心（上下文提取、场景分类、对话对记录）
 │   ├── context_service.py     # 群消息内存缓存、结构化上下文、目标提及检测
 │   ├── persona_service.py     # 目标管理（绑定、启停、关键词、解析）
@@ -546,10 +545,7 @@ fish_coins_bot/plugins/persona_mirror/
 
 ### 7.1 AI 接口
 
-- `PERSONA_TEXT_URI` — 人设插件专用文本接口地址。
-- `PERSONA_TEXT_APIKEY` — 人设插件专用文本接口 Key。
-
-如果这两个没配，会回退到 `AI_TEXT_URI` / `AI_TEXT_APIKEY`。
+复用全局的 `AI_TEXT_URI` / `AI_TEXT_APIKEY`，统一在 `fish_coins_bot/utils/ai_client.py` 中读取。
 
 ### 7.2 管理员
 

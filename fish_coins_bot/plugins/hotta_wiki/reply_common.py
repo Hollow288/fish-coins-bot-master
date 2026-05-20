@@ -12,8 +12,11 @@ from datetime import datetime
 import json
 import random
 from fish_coins_bot.database.hotta.gacha_record import GachaRecord
+from fish_coins_bot.utils.ai_client import call_text_api
 from fish_coins_bot.utils.image_utils import render_gacha_result
 from fish_coins_bot.utils.model_utils import update_last_two_results
+from fish_coins_bot.plugins.persona_mirror.services.context_service import get_recent_context_texts
+from fish_coins_bot.plugins.persona_mirror.utils import message_segments_to_list, render_segments_as_text
 from io import BytesIO
 
 def is_poke_me(event: Event) -> bool:
@@ -253,9 +256,63 @@ async def check_reply_to_me(bot: Bot, event: GroupMessageEvent) -> bool:
 reply_handler_help = on_message(rule=Rule(check_reply_to_me), priority=10, block=True)
 
 
+_REPLY_FALLBACK = '不懂喵,@我并发送"帮助"获取指令菜单喵✨'
+
+
+def _build_reply_prompt(context_lines: list[str], bot_original: str, user_reply: str) -> str:
+    context_block = "\n".join(context_lines) if context_lines else "（无）"
+    return (
+        '你是幻塔（Tower of Fantasy）QQ 群助手。用户在群里"回复"了你之前发的一条消息，'
+        "请按下面的判断规则生成一句回复。\n\n"
+        "【判断规则】\n"
+        "1. 如果用户消息属于游戏数据/功能查询（角色、武器、武器面板、拟态、装备、副本、\n"
+        "   抽卡、属性、版本、活动、攻略、掉落、声波、关卡奖励、\"你能查什么\"、\n"
+        "   \"能不能问问xxx\"等），不要直接回答内容，固定输出一句：\n"
+        "   想查幻塔相关的话，@我并发送\"帮助\"获取指令菜单喵✨\n"
+        "2. 否则视为闲聊（问候、感谢、调侃、表情、夸赞、玩梗、\"你是谁\"之类的自我介绍\n"
+        "   问答），用轻松口语化的语气回一句短话，可带 ✨ / 喵 / ~ 等小尾巴，\n"
+        "   不超过 30 字，不要解释自己是 AI，不要装可怜，不要带 markdown 或图片链接。\n\n"
+        "【输出要求】\n"
+        "只输出要发送给群里的那一句话，不要任何解释、前后缀、引号或 JSON。\n\n"
+        "【最近群聊上下文（旧 → 新，每行一条 \"用户名: 内容\"）】\n"
+        f"{context_block}\n\n"
+        "【你之前发的、被用户回复的那条消息】\n"
+        f"{bot_original or '（空）'}\n\n"
+        "【用户这次回复你的内容】\n"
+        f"{user_reply or '（空）'}\n"
+    )
+
+
 @reply_handler_help.handle()
 async def handle_reply_help(bot: Bot, event: GroupMessageEvent):
-    await reply_handler_help.finish(f"不懂喵,@我并发送\"帮助\"获取指令菜单喵✨")
+    bot_original = ""
+    if event.reply:
+        bot_original = (
+            render_segments_as_text(message_segments_to_list(event.reply.message))
+            or event.reply.message.extract_plain_text()
+        )
+    user_reply = (
+        render_segments_as_text(message_segments_to_list(event.message))
+        or event.get_plaintext()
+    )
+
+    context_lines = get_recent_context_texts(
+        event.group_id,
+        limit=6,
+        exclude_message_id=str(event.message_id),
+    )
+
+    prompt = _build_reply_prompt(context_lines, bot_original.strip(), user_reply.strip())
+
+    result = await call_text_api(
+        prompt,
+        memory_id=f"hotta-reply-{event.group_id}-{event.user_id}",
+        fresh_memory_each_retry=True,
+        retries=3,
+        log_tag="hotta_wiki.reply",
+    )
+
+    await reply_handler_help.finish(result.strip() if result else _REPLY_FALLBACK)
 
 
 

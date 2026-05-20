@@ -2,6 +2,8 @@ import random
 from collections import Counter
 from typing import Any, Callable
 
+from fish_coins_bot.utils.ai_client import call_text_api
+
 from ..config import get_plugin_config
 from ..models import PersonaAsset, PersonaMessage, PersonaProfileSnapshot, PersonaProfileState, PersonaTarget
 from ..prompts import DEFAULT_PROFILE, build_speak_prompt, build_summary_prompt
@@ -13,7 +15,6 @@ from ..utils import (
     similarity_score,
     top_items,
 )
-from .ai_client import call_text_model
 from .persona_service import get_effective_trigger_keywords
 
 
@@ -298,7 +299,12 @@ async def _call_json_model(
     last_raw_response: str | None = None
 
     for _attempt in range(max_attempts):
-        raw_response = await call_text_model(current_prompt, memory_prefix=memory_prefix)
+        raw_response = await call_text_api(
+            current_prompt,
+            memory_id=memory_prefix or "persona",
+            fresh_memory_each_retry=True,
+            log_tag="persona_mirror",
+        )
         if raw_response is None:
             continue
 
