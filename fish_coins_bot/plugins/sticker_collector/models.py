@@ -19,6 +19,9 @@ class StickerAsset(Model):
     )
     is_suitable_sticker = fields.BooleanField(null=True, description="AI判断是否适合作为表情包")
     sticker_meaning = fields.TextField(null=True, description="AI给出的表情包含义")
+    emotion_tag = fields.CharField(
+        max_length=32, null=True, index=True, description="AI给出的情绪标签(用于分桶)"
+    )
     recognize_attempts = fields.IntField(default=0, description="累计识别尝试次数")
     recognized_at = fields.DatetimeField(null=True, description="识别完成时间")
     recognize_error = fields.TextField(null=True, description="识别失败原因/原始返回")

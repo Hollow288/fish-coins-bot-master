@@ -23,10 +23,17 @@ def _now_shanghai() -> datetime:
     return datetime.now(_SHANGHAI_TZ)
 
 
+EMOTION_TAGS = (
+    "开心", "大笑", "震惊", "无语", "卖萌", "嘲讽",
+    "赞同", "拒绝", "疑问", "委屈", "摆烂", "暧昧",
+    "期待", "其他",
+)
+
+
 RECOGNIZE_PROMPT = (
     "你是聊天表情包鉴定助手，只看图片本身。\n"
     "请严格按以下 JSON 返回，不要任何额外文字、不要 markdown 代码块：\n"
-    '{"suitable": true/false, "meaning": "..."}\n'
+    '{"suitable": true/false, "meaning": "...", "emotion_tag": "..."}\n'
     "\n"
     "判断标准：\n"
     "- suitable=true：明显用于聊天的表情包/梗图（情绪、态度、调侃，常带文字或夸张表情）\n"
@@ -34,7 +41,12 @@ RECOGNIZE_PROMPT = (
     "\n"
     "meaning 字段要求：\n"
     "- suitable=true：用一句不超过 30 字的中文，说明这张表情包通常想表达什么情绪/含义（例如\"震惊无语\"、\"卖萌求抱抱\"）\n"
-    "- suitable=false：meaning 填空字符串 \"\""
+    "- suitable=false：meaning 填空字符串 \"\"\n"
+    "\n"
+    "emotion_tag 字段要求：必须从下列枚举中选一个最贴近的，不要自创：\n"
+    f"{'/'.join(EMOTION_TAGS)}\n"
+    "- suitable=true：选最贴近的标签，挑不到合适的就填 \"其他\"\n"
+    "- suitable=false：固定填 \"其他\""
 )
 
 _EXT_TO_MIME = {
@@ -67,8 +79,8 @@ async def _fetch_object_bytes(bucket_name: str, object_name: str) -> bytes:
     return await asyncio.to_thread(_read)
 
 
-def _parse_recognize_response(raw: str) -> tuple[bool, str] | None:
-    """从 AI 返回里抽出 {suitable, meaning}，解析不出来返回 None。"""
+def _parse_recognize_response(raw: str) -> tuple[bool, str, str] | None:
+    """从 AI 返回里抽出 (suitable, meaning, emotion_tag)，解析不出来返回 None。"""
     text = raw.strip()
     if text.startswith("```"):
         text = re.sub(r"^```(?:json)?\s*", "", text)
@@ -102,7 +114,12 @@ def _parse_recognize_response(raw: str) -> tuple[bool, str] | None:
     if not isinstance(meaning, str):
         meaning = str(meaning)
 
-    return suitable, meaning.strip()
+    raw_tag = payload.get("emotion_tag")
+    emotion_tag = raw_tag.strip() if isinstance(raw_tag, str) else ""
+    if emotion_tag not in EMOTION_TAGS:
+        emotion_tag = "其他"
+
+    return suitable, meaning.strip(), emotion_tag
 
 
 async def _recognize_one(asset: StickerAsset, max_attempts: int) -> str:
@@ -176,16 +193,18 @@ async def _recognize_one(asset: StickerAsset, max_attempts: int) -> str:
         logger.warning(f"sticker_collector JSON 解析失败 #{asset.id}: {raw}")
         return "failed"
 
-    suitable, meaning = parsed
+    suitable, meaning, emotion_tag = parsed
     asset.is_suitable_sticker = suitable
     asset.sticker_meaning = meaning if suitable else ""
+    asset.emotion_tag = emotion_tag if suitable else "其他"
     asset.recognize_status = "done"
     asset.recognize_attempts = (asset.recognize_attempts or 0) + 1
     asset.recognize_error = None
     asset.recognized_at = _now_shanghai()
     await asset.save()
     logger.info(
-        f"sticker_collector 识别完成 #{asset.id} suitable={suitable} meaning={meaning!r}"
+        f"sticker_collector 识别完成 #{asset.id} suitable={suitable} "
+        f"tag={emotion_tag!r} meaning={meaning!r}"
     )
     return "done"
 

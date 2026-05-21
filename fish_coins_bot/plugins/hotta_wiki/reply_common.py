@@ -11,12 +11,18 @@ import pytz
 from datetime import datetime
 import json
 import random
+import re
 from fish_coins_bot.database.hotta.gacha_record import GachaRecord
 from fish_coins_bot.utils.ai_client import call_text_api
 from fish_coins_bot.utils.image_utils import render_gacha_result
 from fish_coins_bot.utils.model_utils import update_last_two_results
 from fish_coins_bot.plugins.persona_mirror.services.context_service import get_recent_context_texts
 from fish_coins_bot.plugins.persona_mirror.utils import message_segments_to_list, render_segments_as_text
+from fish_coins_bot.plugins.sticker_collector.models import StickerAsset
+from fish_coins_bot.plugins.sticker_collector.services.picker_service import (
+    get_sticker_segment,
+    pick_candidates_for_reply,
+)
 from io import BytesIO
 
 def is_poke_me(event: Event) -> bool:
@@ -249,22 +255,52 @@ reply_handler_help = on_message(rule=to_me() & Rule(is_group_chat), priority=99,
 _REPLY_FALLBACK = '听不懂,听不懂。@我并发送"帮助"获取指令菜单'
 
 
-def _build_reply_prompt(context_lines: list[str], bot_original: str, user_reply: str) -> str:
+def _format_candidates_block(candidates: list[StickerAsset]) -> str:
+    if not candidates:
+        return "（暂无候选，本次只能纯文字回复）"
+    lines = []
+    for c in candidates:
+        meaning = (c.sticker_meaning or "").strip() or "(无含义)"
+        tag = c.emotion_tag or "其他"
+        lines.append(f"- id={c.id} | 情绪={tag} | 含义={meaning}")
+    return "\n".join(lines)
+
+
+def _build_reply_prompt(
+    context_lines: list[str],
+    bot_original: str,
+    user_reply: str,
+    candidates: list[StickerAsset],
+) -> str:
     context_block = "\n".join(context_lines) if context_lines else "（无）"
     bot_original_block = bot_original if bot_original else "（用户是 @ 你的，没有引用消息）"
+    candidates_block = _format_candidates_block(candidates)
+    valid_ids = ", ".join(str(c.id) for c in candidates) if candidates else "（无）"
     return (
         '你是幻塔（Tower of Fantasy）QQ 群助手。用户在群里 @ 了你 或 回复了你之前发的一条消息，'
-        "请按下面的判断规则生成一句回复。\n\n"
+        "请按下面的规则生成一句回复，并以严格 JSON 输出。\n\n"
         "【判断规则】\n"
         "1. 如果用户消息属于游戏数据/功能查询（角色、武器、武器面板、拟态、装备、副本、\n"
         "   抽卡、属性、版本、活动、攻略、掉落、声波、关卡奖励、\"你能查什么\"、\n"
-        "   \"能不能问问xxx\"等），不要直接回答内容，固定输出一句：\n"
+        "   \"能不能问问xxx\"等），不要直接回答内容，text 固定填：\n"
         "   想查幻塔相关的话，@我并发送\"帮助\"获取指令菜单\n"
+        "   这种情况 sticker_id 必须为 null（不带表情包）。\n"
         "2. 否则视为闲聊（问候、感谢、调侃、表情、夸赞、玩梗、\"你是谁\"之类的自我介绍\n"
-        "   问答），用轻松口语化的语气回一句短话，\n"
-        "   不超过 30 字，不要解释自己是 AI，不要装可怜，不要带 markdown 或图片链接。\n\n"
-        "【输出要求】\n"
-        "只输出要发送给群里的那一句话，不要任何解释、前后缀、引号或 JSON。\n\n"
+        "   问答），用轻松口语化的语气回一句短话，不超过 30 字。\n"
+        "   不要解释自己是 AI，不要装可怜，不要带 markdown 或图片链接。\n"
+        "   这种情况下要积极挑选表情包，详见下文。\n\n"
+        "【表情包候选】\n"
+        "下面是从全局高频里挑出来的候选表情包，每张都标了 id、情绪标签和含义。\n"
+        "只要某张表情包的情绪/含义和你想说的话不至于明显违和，就大方配上一张，\n"
+        "让回复更生动、更像在群里玩梗。多数闲聊都可以配；\n"
+        "只有当所有候选都明显不搭，才把 sticker_id 设为 null。\n"
+        f"候选列表（合法 id：{valid_ids}）：\n"
+        f"{candidates_block}\n\n"
+        "【输出格式】\n"
+        "只输出一个 JSON 对象，不要任何前后缀、解释、引号或 markdown 代码块：\n"
+        '{"text": "要发的那句话", "sticker_id": <候选 id 之一 或 null>}\n'
+        "- text：要发到群里的话本身，不要把表情包含义拼进去。\n"
+        "- sticker_id：从上面候选里挑一个 id；不选就填 null。\n\n"
         "【最近群聊上下文（旧 → 新，每行一条 \"用户名: 内容\"）】\n"
         f"{context_block}\n\n"
         "【你之前发的、被用户回复的那条消息（仅在用户是\"回复\"时有内容）】\n"
@@ -272,6 +308,52 @@ def _build_reply_prompt(context_lines: list[str], bot_original: str, user_reply:
         "【用户这次发给你的内容】\n"
         f"{user_reply or '（空）'}\n"
     )
+
+
+def _parse_reply_response(raw: str, valid_ids: set[int]) -> tuple[str, int | None]:
+    """从 AI 返回里抽出 (text, sticker_id)。解析失败时把整段当作纯文字兜底。"""
+    if not raw:
+        return "", None
+    text_raw = raw.strip()
+    cleaned = text_raw
+    if cleaned.startswith("```"):
+        cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
+        cleaned = re.sub(r"\s*```$", "", cleaned)
+
+    payload = None
+    try:
+        payload = json.loads(cleaned)
+    except json.JSONDecodeError:
+        match = re.search(r"\{.*\}", cleaned, re.DOTALL)
+        if match:
+            try:
+                payload = json.loads(match.group(0))
+            except json.JSONDecodeError:
+                payload = None
+
+    if not isinstance(payload, dict):
+        return text_raw, None
+
+    text_val = payload.get("text")
+    if not isinstance(text_val, str):
+        text_val = "" if text_val is None else str(text_val)
+    text_val = text_val.strip()
+
+    sid_val = payload.get("sticker_id")
+    sticker_id: int | None = None
+    if isinstance(sid_val, bool):
+        sticker_id = None
+    elif isinstance(sid_val, int):
+        sticker_id = sid_val
+    elif isinstance(sid_val, str) and sid_val.strip().lstrip("-").isdigit():
+        sticker_id = int(sid_val.strip())
+    if sticker_id is not None and sticker_id not in valid_ids:
+        logger.warning(
+            f"hotta_wiki.reply AI 选了非候选 sticker_id={sticker_id}，已丢弃"
+        )
+        sticker_id = None
+
+    return text_val, sticker_id
 
 
 @reply_handler_help.handle()
@@ -293,7 +375,15 @@ async def handle_reply_help(bot: Bot, event: GroupMessageEvent):
         exclude_message_id=str(event.message_id),
     )
 
-    prompt = _build_reply_prompt(context_lines, bot_original.strip(), user_reply.strip())
+    try:
+        candidates = await pick_candidates_for_reply(limit=15)
+    except Exception as exc:
+        logger.error(f"hotta_wiki.reply 表情包候选获取失败: {exc}")
+        candidates = []
+
+    prompt = _build_reply_prompt(
+        context_lines, bot_original.strip(), user_reply.strip(), candidates
+    )
 
     result = await call_text_api(
         prompt,
@@ -303,7 +393,25 @@ async def handle_reply_help(bot: Bot, event: GroupMessageEvent):
         log_tag="hotta_wiki.reply",
     )
 
-    await reply_handler_help.finish(result.strip() if result else _REPLY_FALLBACK)
+    if not result:
+        await reply_handler_help.finish(_REPLY_FALLBACK)
+        return
+
+    valid_ids = {c.id for c in candidates}
+    text, sticker_id = _parse_reply_response(result, valid_ids)
+
+    if sticker_id is None:
+        await reply_handler_help.finish(text or _REPLY_FALLBACK)
+        return
+
+    segment = await get_sticker_segment(sticker_id)
+    if segment is None:
+        await reply_handler_help.finish(text or _REPLY_FALLBACK)
+        return
+
+    if text:
+        await bot.send(event, text)
+    await reply_handler_help.finish(segment)
 
 
 
