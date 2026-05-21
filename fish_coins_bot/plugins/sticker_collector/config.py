@@ -21,6 +21,7 @@ def _parse_int(value: str | None, default: int, minimum: int) -> int:
 @dataclass(frozen=True)
 class StickerCollectorConfig:
     collector_enabled: bool
+    collector_max_size_bytes: int
     recognize_enabled: bool
     recognize_interval_minutes: int
     recognize_batch_size: int
@@ -32,6 +33,9 @@ class StickerCollectorConfig:
 def get_plugin_config() -> StickerCollectorConfig:
     return StickerCollectorConfig(
         collector_enabled=_parse_bool(os.getenv("STICKER_COLLECTOR_ENABLED"), default=True),
+        collector_max_size_bytes=_parse_int(
+            os.getenv("STICKER_COLLECTOR_MAX_SIZE_BYTES"), default=512000, minimum=1
+        ),
         recognize_enabled=_parse_bool(os.getenv("STICKER_RECOGNIZE_ENABLED"), default=True),
         recognize_interval_minutes=_parse_int(
             os.getenv("STICKER_RECOGNIZE_INTERVAL_MINUTES"), default=10, minimum=1

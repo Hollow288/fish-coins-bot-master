@@ -15,6 +15,7 @@ from tortoise.exceptions import IntegrityError
 
 from fish_coins_bot.utils.minio_client import minio_client
 
+from ..config import get_plugin_config
 from ..models import StickerAsset, StickerUsage
 
 
@@ -89,11 +90,29 @@ def _sender_name(event: Any) -> str:
     )
 
 
-async def _download_sticker_bytes(url: str) -> tuple[bytes, str | None]:
+async def _download_sticker_bytes(
+    url: str, max_size_bytes: int
+) -> tuple[bytes, str | None] | None:
+    """流式下载表情包；超过 max_size_bytes 返回 None，调用方应跳过。"""
     async with httpx.AsyncClient(timeout=20, follow_redirects=True) as client:
-        response = await client.get(url)
-        response.raise_for_status()
-        return response.content, response.headers.get("Content-Type")
+        async with client.stream("GET", url) as response:
+            response.raise_for_status()
+            declared_length = response.headers.get("Content-Length")
+            if declared_length is not None:
+                try:
+                    if int(declared_length) > max_size_bytes:
+                        return None
+                except ValueError:
+                    pass
+            content_type = response.headers.get("Content-Type")
+            chunks: list[bytes] = []
+            total = 0
+            async for chunk in response.aiter_bytes():
+                total += len(chunk)
+                if total > max_size_bytes:
+                    return None
+                chunks.append(chunk)
+            return b"".join(chunks), content_type
 
 
 async def _ensure_bucket_exists(bucket_name: str) -> None:
@@ -233,6 +252,8 @@ async def collect_stickers_from_event(event: Any) -> None:
     if not sticker_segments:
         return
 
+    max_size_bytes = get_plugin_config().collector_max_size_bytes
+
     for segment in sticker_segments:
         segment_data = segment.get("data", {})
         url = str(segment_data.get("url") or "")
@@ -240,7 +261,13 @@ async def collect_stickers_from_event(event: Any) -> None:
             continue
         source_file = str(segment_data.get("file") or "") or None
         try:
-            content, response_content_type = await _download_sticker_bytes(url)
+            download_result = await _download_sticker_bytes(url, max_size_bytes)
+            if download_result is None:
+                logger.info(
+                    f"sticker_collector 跳过超过 {max_size_bytes} 字节的资源: {url}"
+                )
+                continue
+            content, response_content_type = download_result
             if not content:
                 continue
             content_type, file_ext = _guess_image_info(
