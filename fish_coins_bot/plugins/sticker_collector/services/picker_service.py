@@ -110,4 +110,6 @@ async def get_sticker_segment(sticker_id: int) -> MessageSegment | None:
     except Exception as exc:
         logger.error(f"sticker picker 拉取表情包失败 #{sticker_id}: {exc}")
         return None
-    return MessageSegment.image(BytesIO(content))
+    segment = MessageSegment.image(BytesIO(content))
+    segment.data["sub_type"] = 1
+    return segment
