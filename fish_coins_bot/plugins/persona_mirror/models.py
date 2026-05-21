@@ -63,34 +63,6 @@ class PersonaAsset(Model):
         unique_together = (("target_user_id", "asset_type", "asset_key"),)
 
 
-class PersonaStickerAsset(Model):
-    id = fields.IntField(pk=True, description="主键")
-    target_user_id = fields.CharField(max_length=32, index=True, description="目标QQ")
-    sender_user_id = fields.CharField(max_length=32, index=True, description="发送者QQ")
-    asset_key = fields.CharField(max_length=128, description="去重主键")
-    content_sha256 = fields.CharField(max_length=64, index=True, description="文件内容SHA256")
-    content_md5 = fields.CharField(max_length=32, index=True, description="文件内容MD5")
-    bucket_name = fields.CharField(max_length=128, description="MinIO桶名")
-    object_name = fields.CharField(max_length=512, description="MinIO对象路径")
-    content_type = fields.CharField(max_length=100, null=True, description="内容类型")
-    file_ext = fields.CharField(max_length=16, null=True, description="文件扩展名")
-    file_size = fields.BigIntField(default=0, description="文件大小")
-    used_count = fields.IntField(default=1, description="使用次数")
-    last_group_id = fields.CharField(max_length=32, null=True, index=True, description="最近发送群号")
-    last_platform_message_id = fields.CharField(max_length=64, null=True, description="最近平台消息ID")
-    last_sender_name = fields.CharField(max_length=100, null=True, description="最近发送者名称")
-    source_file = fields.CharField(max_length=512, null=True, description="OneBot原始file字段")
-    source_url = fields.TextField(null=True, description="最近一次下载URL")
-    raw_segment_json = fields.JSONField(default=dict, description="最近一次原始消息分段")
-    first_seen_at = fields.DatetimeField(auto_now_add=True, description="首次出现")
-    last_seen_at = fields.DatetimeField(auto_now=True, description="最近出现")
-
-    class Meta:
-        table = "persona_sticker_asset"
-        table_description = "人设表情包使用记录"
-        unique_together = (("target_user_id", "asset_key"),)
-
-
 class PersonaProfileState(Model):
     id = fields.IntField(pk=True, description="主键")
     target_user_id = fields.CharField(max_length=32, unique=True, description="目标QQ")

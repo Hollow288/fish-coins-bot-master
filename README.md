@@ -124,7 +124,7 @@ agent <自然语言查询>
 - 定时或手动总结目标画像。
 - 群聊中有人 @ 目标、回复目标或提到目标关键词时，自动用目标风格回复。
 - 记录目标常用 QQ 内建表情。
-- 保存目标发送过的图片表情包，并记录使用次数。
+- 表情包采集已抽出为独立的 `sticker_collector` 插件（全局采集），可在 `sticker_usage` 表里按 `user_id` 反查目标用过哪些表情包。
 
 管理指令：
 
@@ -144,14 +144,24 @@ agent <自然语言查询>
 表情记录：
 
 - QQ 内建表情，即 OneBot `face` 段，记录到 `persona_asset`，保存 `face_id` 和 `used_count`。
-- 图片/表情包，即带 `url` 的 `image`、`mface`、`marketface` 段，下载后按内容 `sha256` 去重，保存到 MinIO，并写入 `persona_sticker_asset`。
+- 图片表情包采集已迁移到 `sticker_collector` 插件，全局生效，详见下文。
 
 相关表：
 
 - `persona_target`：被模仿目标。
 - `persona_message`：采集到的原始消息。
 - `persona_asset`：QQ 内建表情使用记录。
-- `persona_sticker_asset`：图片表情包使用记录。
 - `persona_profile_state`：当前画像。
 - `persona_profile_snapshot`：画像快照。
 - `persona_auto_reply_log`：自动回复日志。
+
+## sticker_collector
+
+全局表情包采集 + AI 识别插件。每条群聊/私聊消息都会被扫描，提取带 `url` 的 `image` / `mface` / `marketface` 段，下载后按 `content_sha256` 全局去重，存入 MinIO 桶 `fish-coins-bot-master/sticker/<sha256>.<ext>`，并写入 `sticker_asset`；用户与表情包的使用关系写入 `sticker_usage`。
+
+定时任务每 `STICKER_RECOGNIZE_INTERVAL_MINUTES` 分钟取一批 `recognize_status='pending'` 的表情包，调用 AI 图片识别接口判断"是否适合作为表情包 + 含义"，回写到 `sticker_asset.is_suitable_sticker` 与 `sticker_meaning`。
+
+相关表：
+
+- `sticker_asset`：全局唯一表情包资产（按 `content_sha256`），含 AI 识别结果。
+- `sticker_usage`：用户与表情包的使用记录，`(sticker_id, user_id)` 唯一。

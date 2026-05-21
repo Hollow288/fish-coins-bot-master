@@ -27,6 +27,7 @@ TORTOISE_ORM = {
                 "fish_coins_bot.database.hotta.event_news",
                 "fish_coins_bot.database.hotta.gacha_record",
                 "fish_coins_bot.plugins.persona_mirror.models",
+                "fish_coins_bot.plugins.sticker_collector.models",
             ],
             "default_connection": "default",
         },

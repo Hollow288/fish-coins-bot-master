@@ -76,35 +76,8 @@ CREATE TABLE IF NOT EXISTS `persona_asset` (
   KEY `idx_persona_asset_asset_type` (`asset_type`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='人设QQ表情使用记录';
 
-CREATE TABLE IF NOT EXISTS `persona_sticker_asset` (
-  `id` INT NOT NULL AUTO_INCREMENT COMMENT '主键',
-  `target_user_id` VARCHAR(32) NOT NULL COMMENT '目标QQ',
-  `sender_user_id` VARCHAR(32) NOT NULL COMMENT '发送者QQ',
-  `asset_key` VARCHAR(128) NOT NULL COMMENT '去重主键',
-  `content_sha256` VARCHAR(64) NOT NULL COMMENT '文件内容SHA256',
-  `content_md5` VARCHAR(32) NOT NULL COMMENT '文件内容MD5',
-  `bucket_name` VARCHAR(128) NOT NULL COMMENT 'MinIO桶名',
-  `object_name` VARCHAR(512) NOT NULL COMMENT 'MinIO对象路径',
-  `content_type` VARCHAR(100) NULL COMMENT '内容类型',
-  `file_ext` VARCHAR(16) NULL COMMENT '文件扩展名',
-  `file_size` BIGINT NOT NULL DEFAULT 0 COMMENT '文件大小',
-  `used_count` INT NOT NULL DEFAULT 1 COMMENT '使用次数',
-  `last_group_id` VARCHAR(32) NULL COMMENT '最近发送群号',
-  `last_platform_message_id` VARCHAR(64) NULL COMMENT '最近平台消息ID',
-  `last_sender_name` VARCHAR(100) NULL COMMENT '最近发送者名称',
-  `source_file` VARCHAR(512) NULL COMMENT 'OneBot原始file字段',
-  `source_url` TEXT NULL COMMENT '最近一次下载URL',
-  `raw_segment_json` JSON NOT NULL COMMENT '最近一次原始消息分段',
-  `first_seen_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) COMMENT '首次出现',
-  `last_seen_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6) COMMENT '最近出现',
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_persona_sticker_target_key` (`target_user_id`, `asset_key`),
-  KEY `idx_persona_sticker_target_user_id` (`target_user_id`),
-  KEY `idx_persona_sticker_sender_user_id` (`sender_user_id`),
-  KEY `idx_persona_sticker_content_sha256` (`content_sha256`),
-  KEY `idx_persona_sticker_content_md5` (`content_md5`),
-  KEY `idx_persona_sticker_last_group_id` (`last_group_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='人设表情包使用记录';
+-- persona_sticker_asset 已迁移到 sticker_collector 插件, 请改用 sticker_collector/sql/sticker_collector.sql
+DROP TABLE IF EXISTS `persona_sticker_asset`;
 
 CREATE TABLE IF NOT EXISTS `persona_profile_state` (
   `id` INT NOT NULL AUTO_INCREMENT COMMENT '主键',
