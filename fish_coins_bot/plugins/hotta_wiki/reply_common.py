@@ -241,44 +241,35 @@ async def gacha_handle_function(bot: Bot, event: GroupMessageEvent, args: Messag
     )
 
 
-# 1. 定义规则：检查这是否是一条回复，且是否回复了机器人自己
-async def check_reply_to_me(bot: Bot, event: GroupMessageEvent) -> bool:
-    # event.reply 存在说明是回复消息
-    if event.reply:
-        # 比较被回复人的 ID 是否等于机器人的 ID
-        # 注意：bot.self_id 通常是字符串，event.reply.sender.user_id 是整数，需要转换
-        return event.reply.sender.user_id == int(bot.self_id)
-    return False
+# 用户回复机器人 或 @机器人 时触发；priority 设大一点，作为所有 @ 命令的兜底
+# （help_menu 等 priority=10 的命令会先匹配并 block，命中后这里不会跑）
+reply_handler_help = on_message(rule=to_me() & Rule(is_group_chat), priority=99, block=True)
 
 
-# 2. 注册响应器
-# priority 设置低一点，避免阻挡其他命令
-reply_handler_help = on_message(rule=Rule(check_reply_to_me), priority=10, block=True)
-
-
-_REPLY_FALLBACK = '不懂喵,@我并发送"帮助"获取指令菜单喵✨'
+_REPLY_FALLBACK = '听不懂,听不懂。@我并发送"帮助"获取指令菜单'
 
 
 def _build_reply_prompt(context_lines: list[str], bot_original: str, user_reply: str) -> str:
     context_block = "\n".join(context_lines) if context_lines else "（无）"
+    bot_original_block = bot_original if bot_original else "（用户是 @ 你的，没有引用消息）"
     return (
-        '你是幻塔（Tower of Fantasy）QQ 群助手。用户在群里"回复"了你之前发的一条消息，'
+        '你是幻塔（Tower of Fantasy）QQ 群助手。用户在群里 @ 了你 或 回复了你之前发的一条消息，'
         "请按下面的判断规则生成一句回复。\n\n"
         "【判断规则】\n"
         "1. 如果用户消息属于游戏数据/功能查询（角色、武器、武器面板、拟态、装备、副本、\n"
         "   抽卡、属性、版本、活动、攻略、掉落、声波、关卡奖励、\"你能查什么\"、\n"
         "   \"能不能问问xxx\"等），不要直接回答内容，固定输出一句：\n"
-        "   想查幻塔相关的话，@我并发送\"帮助\"获取指令菜单喵✨\n"
+        "   想查幻塔相关的话，@我并发送\"帮助\"获取指令菜单\n"
         "2. 否则视为闲聊（问候、感谢、调侃、表情、夸赞、玩梗、\"你是谁\"之类的自我介绍\n"
-        "   问答），用轻松口语化的语气回一句短话，可带 ✨ / 喵 / ~ 等小尾巴，\n"
+        "   问答），用轻松口语化的语气回一句短话，\n"
         "   不超过 30 字，不要解释自己是 AI，不要装可怜，不要带 markdown 或图片链接。\n\n"
         "【输出要求】\n"
         "只输出要发送给群里的那一句话，不要任何解释、前后缀、引号或 JSON。\n\n"
         "【最近群聊上下文（旧 → 新，每行一条 \"用户名: 内容\"）】\n"
         f"{context_block}\n\n"
-        "【你之前发的、被用户回复的那条消息】\n"
-        f"{bot_original or '（空）'}\n\n"
-        "【用户这次回复你的内容】\n"
+        "【你之前发的、被用户回复的那条消息（仅在用户是\"回复\"时有内容）】\n"
+        f"{bot_original_block}\n\n"
+        "【用户这次发给你的内容】\n"
         f"{user_reply or '（空）'}\n"
     )
 
@@ -298,7 +289,7 @@ async def handle_reply_help(bot: Bot, event: GroupMessageEvent):
 
     context_lines = get_recent_context_texts(
         event.group_id,
-        limit=6,
+        limit=12,
         exclude_message_id=str(event.message_id),
     )
 
