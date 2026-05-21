@@ -180,6 +180,12 @@ async def _upsert_sticker_asset(
     asset.source_url = source_url
     asset.source_file = source_file
     asset.raw_segment_json = segment
+    if asset.recognize_status == "failed":
+        logger.info(f"sticker_collector 复活 #{asset.id} (重新挑回识别队列)")
+        asset.recognize_status = "pending"
+        asset.recognize_attempts = 0
+        asset.recognize_error = None
+        asset.recognized_at = None
     await asset.save()
     return asset
 
