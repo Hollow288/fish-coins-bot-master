@@ -7,6 +7,7 @@ import re
 from datetime import datetime
 from typing import Any
 
+import pytz
 from nonebot.log import logger
 
 from fish_coins_bot.utils.ai_client import call_image_recognize_api
@@ -14,6 +15,12 @@ from fish_coins_bot.utils.minio_client import minio_client
 
 from ..config import get_plugin_config
 from ..models import StickerAsset
+
+_SHANGHAI_TZ = pytz.timezone("Asia/Shanghai")
+
+
+def _now_shanghai() -> datetime:
+    return datetime.now(_SHANGHAI_TZ)
 
 
 RECOGNIZE_PROMPT = (
@@ -107,7 +114,7 @@ async def _recognize_one(asset: StickerAsset, max_attempts: int) -> str:
         asset.recognize_error = (
             f"无法判定 mimeType: content_type={asset.content_type}, file_ext={asset.file_ext}"
         )
-        asset.recognized_at = datetime.now()
+        asset.recognized_at = _now_shanghai()
         await asset.save()
         logger.warning(
             f"sticker_collector 识别失败 #{asset.id}: {asset.recognize_error}"
@@ -121,7 +128,7 @@ async def _recognize_one(asset: StickerAsset, max_attempts: int) -> str:
         asset.recognize_error = f"MinIO 读取失败: {exc}"
         if asset.recognize_attempts >= max_attempts:
             asset.recognize_status = "failed"
-            asset.recognized_at = datetime.now()
+            asset.recognized_at = _now_shanghai()
         await asset.save()
         logger.error(
             f"sticker_collector MinIO 读取失败 #{asset.id} "
@@ -145,7 +152,7 @@ async def _recognize_one(asset: StickerAsset, max_attempts: int) -> str:
         asset.recognize_error = f"调用接口异常: {exc}"
         if asset.recognize_attempts >= max_attempts:
             asset.recognize_status = "failed"
-            asset.recognized_at = datetime.now()
+            asset.recognized_at = _now_shanghai()
         await asset.save()
         logger.error(f"sticker_collector 识别接口异常 #{asset.id}: {exc}")
         return asset.recognize_status
@@ -155,7 +162,7 @@ async def _recognize_one(asset: StickerAsset, max_attempts: int) -> str:
         asset.recognize_error = "识别接口连续重试均失败"
         if asset.recognize_attempts >= max_attempts:
             asset.recognize_status = "failed"
-            asset.recognized_at = datetime.now()
+            asset.recognized_at = _now_shanghai()
         await asset.save()
         return asset.recognize_status
 
@@ -164,7 +171,7 @@ async def _recognize_one(asset: StickerAsset, max_attempts: int) -> str:
         asset.recognize_status = "failed"
         asset.recognize_attempts = max_attempts
         asset.recognize_error = f"无法解析 AI 返回: {raw[:500]}"
-        asset.recognized_at = datetime.now()
+        asset.recognized_at = _now_shanghai()
         await asset.save()
         logger.warning(f"sticker_collector JSON 解析失败 #{asset.id}: {raw}")
         return "failed"
@@ -175,7 +182,7 @@ async def _recognize_one(asset: StickerAsset, max_attempts: int) -> str:
     asset.recognize_status = "done"
     asset.recognize_attempts = (asset.recognize_attempts or 0) + 1
     asset.recognize_error = None
-    asset.recognized_at = datetime.now()
+    asset.recognized_at = _now_shanghai()
     await asset.save()
     logger.info(
         f"sticker_collector 识别完成 #{asset.id} suitable={suitable} meaning={meaning!r}"
