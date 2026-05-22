@@ -9,7 +9,7 @@ from nonebot.log import logger
 
 from .config import get_auto_reply_cooldown, get_plugin_config
 from .models import PersonaAutoReplyLog, PersonaMessage, PersonaProfileState, PersonaTarget
-from .services.context_service import get_recent_group_context
+from .services.context_service import get_recent_group_context, record_bot_outgoing_message
 from .services.persona_service import get_effective_trigger_keywords
 from .services.summarizer_service import PersonaReplyError, generate_reply
 from .utils import message_segments_to_list, normalize_text, now_shanghai, parse_inline_face_text
@@ -286,10 +286,12 @@ async def handle_auto_persona_reply(bot: Bot, event: GroupMessageEvent) -> None:
                     continue
         return message if appended else None
 
+    sent_lines: list[str] = []
     if not line_segments_list:
         # 纯表情回复：reply 为空时用 fallback face_id 发一条
         if fallback_face_segment is not None:
             await bot.send(event, Message(fallback_face_segment))
+            sent_lines.append(f"[face:{face_id}]")
     else:
         for index, parsed in enumerate(line_segments_list):
             is_last = index == len(line_segments_list) - 1
@@ -297,11 +299,30 @@ async def handle_auto_persona_reply(bot: Bot, event: GroupMessageEvent) -> None:
             if message is None:
                 continue
             # 只有 reply 中完全没有 inline face 时，才把旧版 face_id 兜底贴到最后一行
-            if is_last and fallback_face_segment is not None and not has_inline_face:
+            append_fallback = (
+                is_last and fallback_face_segment is not None and not has_inline_face
+            )
+            if append_fallback:
                 message += fallback_face_segment
             await bot.send(event, message)
+            line_text = "".join(
+                piece["value"] if piece["type"] == "text" else f"[face:{piece['id']}]"
+                for piece in parsed
+            )
+            if append_fallback:
+                line_text = f"{line_text} [face:{face_id}]" if line_text else f"[face:{face_id}]"
+            if line_text:
+                sent_lines.append(line_text)
             if not is_last:
                 await asyncio.sleep(random.uniform(0.6, 1.4))
+
+    if sent_lines:
+        record_bot_outgoing_message(
+            event.group_id,
+            str(bot.self_id),
+            "\n".join(sent_lines),
+            sender_name=f"[我(机器人)模仿{target.target_user_id}]",
+        )
 
     # 刷新数据库中的 target 记录（缓存的对象可能已过期）
     fresh_target = await PersonaTarget.get_or_none(id=target.id)

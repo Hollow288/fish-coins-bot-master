@@ -16,7 +16,10 @@ from fish_coins_bot.database.hotta.gacha_record import GachaRecord
 from fish_coins_bot.utils.ai_client import call_text_api
 from fish_coins_bot.utils.image_utils import render_gacha_result
 from fish_coins_bot.utils.model_utils import update_last_two_results
-from fish_coins_bot.plugins.persona_mirror.services.context_service import get_recent_context_texts
+from fish_coins_bot.plugins.persona_mirror.services.context_service import (
+    get_recent_context_texts,
+    record_bot_outgoing_message,
+)
 from fish_coins_bot.plugins.persona_mirror.utils import message_segments_to_list, render_segments_as_text
 from fish_coins_bot.plugins.sticker_collector.models import StickerAsset
 from fish_coins_bot.plugins.sticker_collector.services.picker_service import (
@@ -393,7 +396,11 @@ async def handle_reply_help(bot: Bot, event: GroupMessageEvent):
         log_tag="hotta_wiki.reply",
     )
 
+    bot_self_id = str(bot.self_id)
+    group_id = event.group_id
+
     if not result:
+        record_bot_outgoing_message(group_id, bot_self_id, _REPLY_FALLBACK)
         await reply_handler_help.finish(_REPLY_FALLBACK)
         return
 
@@ -401,16 +408,28 @@ async def handle_reply_help(bot: Bot, event: GroupMessageEvent):
     text, sticker_id = _parse_reply_response(result, valid_ids)
 
     if sticker_id is None:
-        await reply_handler_help.finish(text or _REPLY_FALLBACK)
+        out_text = text or _REPLY_FALLBACK
+        record_bot_outgoing_message(group_id, bot_self_id, out_text)
+        await reply_handler_help.finish(out_text)
         return
 
     segment = await get_sticker_segment(sticker_id)
     if segment is None:
-        await reply_handler_help.finish(text or _REPLY_FALLBACK)
+        out_text = text or _REPLY_FALLBACK
+        record_bot_outgoing_message(group_id, bot_self_id, out_text)
+        await reply_handler_help.finish(out_text)
         return
+
+    selected = next((c for c in candidates if c.id == sticker_id), None)
+    meaning = (selected.sticker_meaning or "").strip() if selected else ""
+    sticker_repr = f"[表情包:{meaning}]" if meaning else "[表情包]"
 
     if text:
         await bot.send(event, text)
+        record_bot_outgoing_message(group_id, bot_self_id, f"{text} {sticker_repr}")
+    else:
+        record_bot_outgoing_message(group_id, bot_self_id, sticker_repr)
+
     await reply_handler_help.finish(segment)
 
 

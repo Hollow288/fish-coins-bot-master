@@ -1,13 +1,13 @@
 from collections import Counter
 
 from nonebot import on_command
-from nonebot.adapters.onebot.v11 import GroupMessageEvent, Message, MessageEvent, MessageSegment
+from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent, Message, MessageEvent, MessageSegment
 from nonebot.params import CommandArg
 
 from .auto_reply import invalidate_target_cache
 from .config import get_auto_reply_cooldown, set_auto_reply_cooldown
 from .models import PersonaAsset, PersonaMessage
-from .services.context_service import get_recent_group_context
+from .services.context_service import get_recent_group_context, record_bot_outgoing_message
 from .services.persona_service import (
     bind_target,
     get_effective_trigger_keywords,
@@ -241,7 +241,7 @@ async def handle_persona_cooldown(event: MessageEvent, args: Message = CommandAr
 
 
 @persona_speak_cmd.handle()
-async def handle_persona_speak(event: MessageEvent, args: Message = CommandArg()) -> None:
+async def handle_persona_speak(bot: Bot, event: MessageEvent, args: Message = CommandArg()) -> None:
     if not await _require_admin(event, persona_speak_cmd):
         return
 
@@ -310,4 +310,18 @@ async def handle_persona_speak(event: MessageEvent, args: Message = CommandArg()
 
     if not message:
         await persona_speak_cmd.finish("AI 没生成可发送的内容。")
+
+    if isinstance(event, GroupMessageEvent):
+        sent_text = reply_text or ""
+        if face_id.isdigit() and not has_inline_face:
+            sent_text = (
+                f"{sent_text} [face:{face_id}]" if sent_text else f"[face:{face_id}]"
+            )
+        if sent_text:
+            record_bot_outgoing_message(
+                event.group_id,
+                str(bot.self_id),
+                sent_text,
+                sender_name=f"[我(机器人)模仿{target.target_user_id}]",
+            )
     await persona_speak_cmd.finish(message)
