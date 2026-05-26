@@ -771,6 +771,99 @@ async def screenshot_first_dyn_by_keyword(
         return image
 
 
+async def screenshot_opus_by_id(id_str: str) -> Optional[Image.Image]:
+    """通过 www.bilibili.com/opus/{id_str} 路径截取 B 站动态详情卡片。
+
+    旧的 screenshot_first_dyn_by_keyword 走 space.bilibili.com, 这个域名已被 B 站对
+    机房 IP 风控 (HTTP 412), 在云服务器上不可用。opus 路径走 www 子域且按动态 id 直达,
+    目前未被风控。
+    """
+    sessdata = os.getenv("BILI_SESSDATA")
+    bili_jct = os.getenv("BILI_JCT")
+    buvid3 = os.getenv("BILI_BUVID3")
+
+    cookies = [
+        {"name": name, "value": value, "domain": ".bilibili.com", "path": "/"}
+        for name, value in (
+            ("SESSDATA", sessdata),
+            ("bili_jct", bili_jct),
+            ("buvid3", buvid3),
+        )
+        if value
+    ]
+
+    url = f"https://www.bilibili.com/opus/{id_str}"
+    user_agent = (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36"
+    )
+
+    hide_css = """
+    .bili-header, #biliMainHeader, .header-mini, .mini-header,
+    .vui_navbar, .bili-header__bar, .opus-detail__nav,
+    .float-nav, .float-nav-exp, .bili-nav, .bili-mini-mask,
+    .opus-mall-icon, .opus-page-aside, .opus-side-tag,
+    .opus-share, .right-bottom-banner, .van-popover,
+    .opus-article-cover, .bili-rich-cover, .opus-rich-cover,
+    .bili-article-card__image, .opus-module-top
+    { display: none !important; }
+    body { padding-top: 0 !important; }
+    """
+
+    selectors = [
+        ".bili-opus-view",
+        ".opus-modules",
+        ".dyn-card",
+        ".bili-dyn-item__main",
+        ".dynamic-card-content",
+        "article",
+    ]
+
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(
+            headless=True,
+            args=["--no-sandbox", "--disable-dev-shm-usage"],
+        )
+        try:
+            context = await browser.new_context(
+                viewport={"width": 1440, "height": 900},
+                user_agent=user_agent,
+                locale="zh-CN",
+                timezone_id="Asia/Shanghai",
+            )
+            if cookies:
+                await context.add_cookies(cookies)
+
+            page = await context.new_page()
+            await page.goto(url, timeout=30000, wait_until="domcontentloaded")
+            await page.wait_for_timeout(3000)
+
+            await page.add_style_tag(content=hide_css)
+            await page.wait_for_timeout(1500)
+
+            title = await page.title()
+            if "出错啦" in title:
+                logger.error(f"[opus 截图] 页面风控 id={id_str} title={title!r}")
+                return None
+
+            for selector in selectors:
+                el = await page.query_selector(selector)
+                if not el:
+                    continue
+                try:
+                    await el.scroll_into_view_if_needed()
+                    await page.wait_for_timeout(500)
+                    image_bytes = await el.screenshot()
+                    return Image.open(io.BytesIO(image_bytes))
+                except Exception as e:
+                    logger.warning(f"[opus 截图] selector={selector} 截图失败: {e}")
+                    continue
+
+            logger.error(f"[opus 截图] 未找到合适的卡片元素 id={id_str}")
+            return None
+        finally:
+            await browser.close()
+
 
 
 
