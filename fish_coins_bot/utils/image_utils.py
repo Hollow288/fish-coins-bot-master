@@ -865,6 +865,121 @@ async def screenshot_opus_by_id(id_str: str) -> Optional[Image.Image]:
             await browser.close()
 
 
+def _load_x_cookies() -> list[dict[str, str]]:
+    cookie_values = {
+        "auth_token": os.getenv("X_AUTH_TOKEN", "").strip(),
+        "ct0": os.getenv("X_CT0", "").strip(),
+        "twid": os.getenv("X_TWID", "").strip(),
+    }
+    for cookie_name, value in list(cookie_values.items()):
+        prefix = f"{cookie_name}="
+        if value.startswith(prefix):
+            cookie_values[cookie_name] = value[len(prefix):].strip()
+
+    if not cookie_values["auth_token"] or not cookie_values["ct0"]:
+        return []
+
+    cookies = []
+    for domain in (".x.com", ".twitter.com"):
+        for name, value in cookie_values.items():
+            if not value:
+                continue
+            cookies.append(
+                {
+                    "name": name,
+                    "value": value,
+                    "domain": domain,
+                    "path": "/",
+                }
+            )
+    return cookies
+
+
+async def screenshot_x_tweet_by_id(username: str, tweet_id: str) -> Optional[Image.Image]:
+    """通过 x.com/{username}/status/{tweet_id} 截取单条推文卡片。"""
+
+    username = username.lstrip("@")
+    url = f"https://x.com/{username}/status/{tweet_id}"
+    user_agent = (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+    )
+
+    hide_css = """
+    header[role="banner"],
+    [data-testid="sidebarColumn"],
+    [data-testid="BottomBar"],
+    [data-testid="mask"],
+    div[role="dialog"],
+    div[aria-modal="true"]
+    { display: none !important; }
+    body { background: #ffffff !important; }
+    main { margin: 0 !important; }
+    """
+
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(
+            headless=True,
+            args=["--no-sandbox", "--disable-dev-shm-usage"],
+        )
+        try:
+            context = await browser.new_context(
+                viewport={"width": 900, "height": 1100},
+                user_agent=user_agent,
+                locale="zh-CN",
+                timezone_id="Asia/Shanghai",
+            )
+            cookies = _load_x_cookies()
+            if cookies:
+                await context.add_cookies(cookies)
+
+            page = await context.new_page()
+            await page.goto(url, timeout=45000, wait_until="domcontentloaded")
+            await page.wait_for_timeout(5000)
+
+            await page.add_style_tag(content=hide_css)
+            await page.wait_for_timeout(1000)
+
+            content = await page.locator("body").inner_text(timeout=5000)
+            lowered = content.lower()
+            if "something went wrong" in lowered or "rate limit" in lowered:
+                logger.error(f"[X 截图] 页面异常 tweet_id={tweet_id} url={url}")
+                return None
+
+            try:
+                await page.wait_for_selector("article", timeout=12000)
+            except Exception:
+                logger.error(f"[X 截图] 未找到 article tweet_id={tweet_id} url={url}")
+                return None
+
+            articles = await page.query_selector_all("article")
+            for article in articles:
+                try:
+                    hrefs = await article.eval_on_selector_all(
+                        "a[href*='/status/']",
+                        "(els) => els.map((a) => a.href)",
+                    )
+                    if any(str(tweet_id) in str(href) for href in hrefs):
+                        await article.scroll_into_view_if_needed()
+                        await page.wait_for_timeout(500)
+                        image_bytes = await article.screenshot()
+                        return Image.open(io.BytesIO(image_bytes))
+                except Exception as e:
+                    logger.warning(f"[X 截图] 匹配 article 失败 tweet_id={tweet_id}: {e}")
+
+            if articles:
+                article = articles[0]
+                await article.scroll_into_view_if_needed()
+                await page.wait_for_timeout(500)
+                image_bytes = await article.screenshot()
+                return Image.open(io.BytesIO(image_bytes))
+
+            logger.error(f"[X 截图] 未找到可截图元素 tweet_id={tweet_id}")
+            return None
+        finally:
+            await browser.close()
+
+
 
 
 # 抽卡图片生成======

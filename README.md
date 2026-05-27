@@ -16,6 +16,7 @@
 - 帮助菜单图片。
 - 戳一戳问候。
 - @ 机器人或回复机器人时触发 AI 兜底回复，闲聊场景可从 `sticker_collector` 的候选表情包中挑选一张一起发送。
+- 机器人连续两次成功发送同一张表情包后，下一次 AI 兜底回复会临时从候选中排除该表情包，避免重复刷同一张图。
 
 群聊指令：
 
@@ -34,7 +35,7 @@
 自动行为：
 
 - 戳一戳机器人：按上海时间回复问候和帮助提示。
-- @ 机器人或回复机器人：兜底调用文本 AI 生成回复；游戏查询类内容会引导用户发送帮助菜单。
+- @ 机器人或回复机器人：兜底调用文本 AI 生成回复；游戏查询类内容会引导用户发送帮助菜单；闲聊回复会尽量搭配合适表情包，并记录机器人自己的最近回复上下文。
 - 每天 00:05、05:05、12:05 生成活动资讯图。
 - 每天 12:30 检查 7 天内即将结束的活动，生成并向所有群推送提醒图。
 - 每月最后一天 18:30 向所有群推送特殊凭证提醒图。
@@ -60,9 +61,61 @@ B 站直播和动态推送插件，入口为 `fish_coins_bot/plugins/bilibili/__
 
 相关文件和表：
 
-- `fish_coins_bot/plugins/bilibili/dynamics_list.json`：动态推送配置，格式为 `{"B站UID": [群号1, 群号2]}`。
+- `fish_coins_bot/plugins/bilibili/dynamics_list.json`：跨平台动态推送配置，顶层按 `bilibili` / `x` 分组。
 - `bot_live_state`：直播间、推送群和直播状态。
 - `dynamics_history`：动态去重记录。
+
+`dynamics_list.json` 现在为跨平台动态推送配置，格式为：
+
+```json
+{
+  "bilibili": {
+    "": ["", ""]
+  },
+  "x": {
+    "Kingshot_Mobile": [""]
+  }
+}
+```
+
+也可以为 X 单个账号配置选项：
+
+```json
+{
+  "x": {
+    "Kingshot_Mobile": {
+      "groups": [""],
+      "include_replies": false,
+      "include_retweets": false,
+      "limit": 5,
+      "max_age_seconds": 720
+    }
+  }
+}
+```
+
+旧格式 `{"B站UID": [群号1, 群号2]}` 仍会按 B 站配置兼容读取。
+
+### x_monitor
+
+X/Twitter 推文推送插件，入口为 `fish_coins_bot/plugins/x_monitor/__init__.py`。
+
+主要功能：
+
+- 每 60 秒读取 `dynamics_list.json` 中 `x` 段配置的用户名。
+- 使用 `twscrape` 和 X Cookie 拉取用户最新推文，默认过滤回复和转推。
+- 按 `dynamics_history` 中的 `platform + uid + id_str` 去重。
+- 新推文会打开 `https://x.com/<用户名>/status/<tweet_id>` 并通过 Playwright 截图后推送到配置群。
+- 超过 `X_DYNAMIC_MAX_AGE_SECONDS` 的旧推文只记入去重记录，不再推送。
+
+相关配置：
+
+- `X_AUTH_TOKEN`、`X_CT0`、`X_TWID`：X 登录 Cookie，配置方式类似 B 站的 `BILI_SESSDATA`、`BILI_JCT`、`BILI_BUVID3`。
+- `X_DYNAMICS_INTERVAL_SECONDS`、`X_FETCH_LIMIT`、`X_INCLUDE_REPLIES`、`X_INCLUDE_RETWEETS`：轮询与过滤配置。
+
+相关表：
+
+- `dynamics_history`：B 站动态和 X 推文共用的去重历史表。
 
 ### delta_force
 
@@ -196,6 +249,8 @@ agent <自然语言查询>
 - 记录每个用户使用过哪些表情包及使用次数。
 - 定时调用 AI 图片识别接口，判断是否适合作为聊天表情包，并写回含义与情绪标签。
 - 为 `hotta_wiki` 的 AI 兜底回复提供已识别、适合作为表情包的候选池。
+- 候选池按综合分排序：发送人数权重更高，总发送次数作为补充热度；最终缓存前 50 张，再按情绪分桶抽样给 AI。
+- 支持按群记录机器人最近两次成功发送的表情包；若同一张连续出现两次，下次候选池会临时排除并从剩余表情包中补足。
 
 自动行为：
 
@@ -203,6 +258,7 @@ agent <自然语言查询>
 - 每 `STICKER_RECOGNIZE_INTERVAL_MINUTES` 分钟取一批 `recognize_status='pending'` 的表情包做 AI 识别。
 - 识别批量大小、最大重试次数和节流间隔分别由 `STICKER_RECOGNIZE_BATCH_SIZE`、`STICKER_RECOGNIZE_MAX_ATTEMPTS`、`STICKER_RECOGNIZE_THROTTLE_MS` 控制。
 - AI 识别会写入 `is_suitable_sticker`、`sticker_meaning`、`emotion_tag`、`recognize_status` 等字段。
+- 回复候选池每 5 分钟刷新一次，综合分为“发送人数 * 10 + log(1 + 总发送次数)”。
 
 相关表：
 

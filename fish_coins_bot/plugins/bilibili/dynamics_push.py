@@ -1,23 +1,19 @@
 import asyncio
-import json
 import os
 import time
 from collections import defaultdict
 from io import BytesIO
-from pathlib import Path
 
 import httpx
 from bilibili_api import user
 from nonebot import get_bot, require
 from nonebot.adapters.onebot.v11 import MessageSegment
 from nonebot.log import logger
-from tortoise import Tortoise
 
-from fish_coins_bot.database import database_config
 from fish_coins_bot.database.bilibili.dynamics.models import DynamicsHistory
-from fish_coins_bot.database.bilibili.live.models import BotLiveState
 from fish_coins_bot.utils.image_utils import screenshot_first_dyn_by_keyword, screenshot_opus_by_id
 from fish_coins_bot.utils.model_utils import find_key_word_by_type
+from fish_coins_bot.utils.dynamics_config import load_platform_targets
 
 require("nonebot_plugin_apscheduler")
 
@@ -41,11 +37,9 @@ DYNAMIC_MAX_AGE_SECONDS = 12 * 60
 async def dynamics_push():
     bot = get_bot()
 
-    with open(Path(__file__).parent / 'dynamics_list.json', 'r',
-              encoding='utf-8') as f:
-        dynamics_list = json.load(f)
+    dynamics_list = load_platform_targets("bilibili")
 
-    for uid in dynamics_list:
+    for uid, target in dynamics_list.items():
         u = user.User(int(uid))
         dynamics = await u.get_dynamics_new()
 
@@ -57,13 +51,14 @@ async def dynamics_push():
                 continue
 
             id_str = item['id_str']
-            exists = await DynamicsHistory.exists(uid=uid, id_str=id_str)
+            exists = await DynamicsHistory.exists(platform="bilibili", uid=uid, id_str=id_str)
             if not exists:
 
                 pub_ts = int(item['modules']['module_author']['pub_ts'])
                 now_ts = int(time.time())
                 if now_ts - pub_ts >= DYNAMIC_MAX_AGE_SECONDS:
                     await DynamicsHistory.create(
+                        platform="bilibili",
                         uid=uid,
                         id_str=item['id_str']
                     )
@@ -82,11 +77,11 @@ async def dynamics_push():
                     MessageSegment.image(buffer)
                 )
 
-                group_list = dynamics_list[uid]
-                for group_id in group_list:
-                    await bot.send_group_msg(group_id=group_id, message=message_img)
+                for group_id in target.group_ids:
+                    await bot.send_group_msg(group_id=int(group_id), message=message_img)
 
                 await DynamicsHistory.create(
+                    platform="bilibili",
                     uid=uid,
                     id_str=item['id_str']
                 )
@@ -97,8 +92,7 @@ async def dynamics_push():
 # 前置: bot B 站账号必须关注 dynamics_list.json 里所有要监控的 UP 主, 否则拿不到他们的动态.
 @scheduler.scheduled_job("interval", seconds=60, id="dynamics_push_v2")
 async def dynamics_push_v2():
-    with open(Path(__file__).parent / 'dynamics_list.json', 'r', encoding='utf-8') as f:
-        dynamics_list = json.load(f)
+    dynamics_list = load_platform_targets("bilibili")
 
     if not dynamics_list:
         return
@@ -121,14 +115,14 @@ async def dynamics_push_v2():
             continue
 
     bot = get_bot()
-    for uid, group_list in dynamics_list.items():
+    for uid, target in dynamics_list.items():
         user_items = items_by_uid.get(str(uid))
         if not user_items:
             continue
 
         for item in user_items:
             try:
-                await _handle_one_dynamic(bot, uid, item, group_list)
+                await _handle_one_dynamic(bot, uid, item, target.group_ids)
             except Exception as e:
                 logger.error(f"[动态推送v2] 处理动态失败 uid={uid}: {e}")
 
@@ -142,13 +136,13 @@ async def _handle_one_dynamic(bot, uid: str, item: dict, group_list: list) -> No
     if not id_str:
         return
 
-    if await DynamicsHistory.exists(uid=uid, id_str=id_str):
+    if await DynamicsHistory.exists(platform="bilibili", uid=uid, id_str=id_str):
         return
 
     pub_ts = int(item["modules"]["module_author"]["pub_ts"])
     now_ts = int(time.time())
     if now_ts - pub_ts >= DYNAMIC_MAX_AGE_SECONDS:
-        await DynamicsHistory.create(uid=uid, id_str=id_str)
+        await DynamicsHistory.create(platform="bilibili", uid=uid, id_str=id_str)
         return
 
     image = await screenshot_opus_by_id(id_str)
@@ -163,11 +157,11 @@ async def _handle_one_dynamic(bot, uid: str, item: dict, group_list: list) -> No
 
     for group_id in group_list:
         try:
-            await bot.send_group_msg(group_id=group_id, message=message_img)
+            await bot.send_group_msg(group_id=int(group_id), message=message_img)
         except Exception as e:
             logger.error(f"[动态推送v2] 发送群消息失败 group={group_id} id={id_str}: {e}")
 
-    await DynamicsHistory.create(uid=uid, id_str=id_str)
+    await DynamicsHistory.create(platform="bilibili", uid=uid, id_str=id_str)
 
 
 async def _fetch_following_feed() -> list:
