@@ -24,7 +24,9 @@ from fish_coins_bot.plugins.persona_mirror.utils import message_segments_to_list
 from fish_coins_bot.plugins.sticker_collector.models import StickerAsset
 from fish_coins_bot.plugins.sticker_collector.services.picker_service import (
     get_sticker_segment,
+    get_temporarily_blocked_sticker_ids,
     pick_candidates_for_reply,
+    record_bot_reply_sticker_usage,
 )
 from io import BytesIO
 
@@ -378,11 +380,19 @@ async def handle_reply_help(bot: Bot, event: GroupMessageEvent):
         exclude_message_id=str(event.message_id),
     )
 
+    blocked_sticker_ids = get_temporarily_blocked_sticker_ids(event.group_id)
     try:
-        candidates = await pick_candidates_for_reply(limit=15)
+        candidates = await pick_candidates_for_reply(
+            limit=15,
+            exclude_ids=blocked_sticker_ids,
+        )
     except Exception as exc:
         logger.error(f"hotta_wiki.reply 表情包候选获取失败: {exc}")
         candidates = []
+    if blocked_sticker_ids:
+        logger.info(
+            f"hotta_wiki.reply 临时排除连续使用表情包: {sorted(blocked_sticker_ids)}"
+        )
 
     prompt = _build_reply_prompt(
         context_lines, bot_original.strip(), user_reply.strip(), candidates
@@ -401,6 +411,7 @@ async def handle_reply_help(bot: Bot, event: GroupMessageEvent):
 
     if not result:
         record_bot_outgoing_message(group_id, bot_self_id, _REPLY_FALLBACK)
+        record_bot_reply_sticker_usage(group_id, None)
         await reply_handler_help.finish(_REPLY_FALLBACK)
         return
 
@@ -410,6 +421,7 @@ async def handle_reply_help(bot: Bot, event: GroupMessageEvent):
     if sticker_id is None:
         out_text = text or _REPLY_FALLBACK
         record_bot_outgoing_message(group_id, bot_self_id, out_text)
+        record_bot_reply_sticker_usage(group_id, None)
         await reply_handler_help.finish(out_text)
         return
 
@@ -417,6 +429,7 @@ async def handle_reply_help(bot: Bot, event: GroupMessageEvent):
     if segment is None:
         out_text = text or _REPLY_FALLBACK
         record_bot_outgoing_message(group_id, bot_self_id, out_text)
+        record_bot_reply_sticker_usage(group_id, None)
         await reply_handler_help.finish(out_text)
         return
 
@@ -430,6 +443,7 @@ async def handle_reply_help(bot: Bot, event: GroupMessageEvent):
     else:
         record_bot_outgoing_message(group_id, bot_self_id, sticker_repr)
 
+    record_bot_reply_sticker_usage(group_id, sticker_id)
     await reply_handler_help.finish(segment)
 
 

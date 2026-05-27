@@ -3,10 +3,12 @@
 import asyncio
 import random
 import time
+from collections import defaultdict, deque
 from io import BytesIO
 
 from nonebot.adapters.onebot.v11 import MessageSegment
 from nonebot.log import logger
+from tortoise import connections
 
 from fish_coins_bot.utils.minio_client import minio_client
 
@@ -15,9 +17,29 @@ from ..models import StickerAsset
 
 _CACHE_TTL_SECONDS = 300
 _POOL_SIZE = 50
+_UNIQUE_USER_SCORE_WEIGHT = 10.0
 
 _cache_lock = asyncio.Lock()
 _cache: dict[str, object] = {"expires_at": 0.0, "pool": []}
+_GROUP_RECENT_REPLY_STICKERS: defaultdict[str, deque[int | None]] = defaultdict(
+    lambda: deque(maxlen=2)
+)
+
+
+def record_bot_reply_sticker_usage(
+    group_id: str | int,
+    sticker_id: int | None,
+) -> None:
+    """记录机器人一次回复是否发了表情包，用于抑制连续重复。"""
+    _GROUP_RECENT_REPLY_STICKERS[str(group_id)].append(sticker_id)
+
+
+def get_temporarily_blocked_sticker_ids(group_id: str | int) -> set[int]:
+    """如果同一张表情包连续发了两次，下一次候选里临时排除它。"""
+    recent = list(_GROUP_RECENT_REPLY_STICKERS.get(str(group_id), []))
+    if len(recent) == 2 and recent[0] is not None and recent[0] == recent[1]:
+        return {recent[0]}
+    return set()
 
 
 async def _fetch_object_bytes(bucket_name: str, object_name: str) -> bytes:
@@ -33,13 +55,47 @@ async def _fetch_object_bytes(bucket_name: str, object_name: str) -> bytes:
 
 
 async def _refresh_pool() -> list[StickerAsset]:
-    pool = await (
-        StickerAsset
-        .filter(is_suitable_sticker=True, recognize_status="done")
-        .order_by("-used_count", "-id")
-        .limit(_POOL_SIZE)
-    )
-    return list(pool)
+    try:
+        rows = await connections.get("default").execute_query_dict(
+            """
+            SELECT
+              a.id
+            FROM sticker_asset a
+            LEFT JOIN (
+              SELECT sticker_id, COUNT(*) AS unique_user_count
+              FROM sticker_usage
+              GROUP BY sticker_id
+            ) u ON u.sticker_id = a.id
+            WHERE a.is_suitable_sticker = 1
+              AND a.recognize_status = 'done'
+            ORDER BY
+              COALESCE(u.unique_user_count, 0) * %s + LOG(1 + a.used_count) DESC,
+              a.used_count DESC,
+              a.id DESC
+            LIMIT %s
+            """,
+            [_UNIQUE_USER_SCORE_WEIGHT, _POOL_SIZE],
+        )
+    except Exception as exc:
+        logger.error(f"sticker picker 综合分排序失败，退回总次数排序: {exc}")
+        return list(await (
+            StickerAsset
+            .filter(is_suitable_sticker=True, recognize_status="done")
+            .order_by("-used_count", "-id")
+            .limit(_POOL_SIZE)
+        ))
+
+    ordered_ids = [int(row["id"]) for row in rows]
+    if not ordered_ids:
+        return []
+
+    assets = await StickerAsset.filter(id__in=ordered_ids)
+    asset_by_id = {asset.id: asset for asset in assets}
+    return [
+        asset_by_id[sticker_id]
+        for sticker_id in ordered_ids
+        if sticker_id in asset_by_id
+    ]
 
 
 async def _get_pool() -> list[StickerAsset]:
@@ -94,9 +150,14 @@ def _sample_by_emotion(pool: list[StickerAsset], limit: int) -> list[StickerAsse
     return picked
 
 
-async def pick_candidates_for_reply(limit: int = 15) -> list[StickerAsset]:
-    """挑 limit 张表情包，覆盖尽量多的情绪桶，5 分钟缓存。"""
+async def pick_candidates_for_reply(
+    limit: int = 15,
+    exclude_ids: set[int] | None = None,
+) -> list[StickerAsset]:
+    """挑 limit 张表情包，先从完整候选池排除指定 id，再按情绪桶补足抽样。"""
     pool = await _get_pool()
+    if exclude_ids:
+        pool = [asset for asset in pool if asset.id not in exclude_ids]
     return _sample_by_emotion(pool, limit)
 
 
