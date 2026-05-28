@@ -917,6 +917,17 @@ async def screenshot_x_tweet_by_id(username: str, tweet_id: str) -> Optional[Ima
     main { margin: 0 !important; }
     """
 
+    # 取消所有 sticky 定位, 避免 X 详情页内"Post"标题栏在 article 顶部叠加遮挡头像/用户名区
+    unstick_js = """() => {
+      document.querySelectorAll('*').forEach(el => {
+        const cs = window.getComputedStyle(el);
+        if (cs.position === 'sticky') {
+          el.style.setProperty('position', 'static', 'important');
+          el.style.setProperty('top', 'auto', 'important');
+        }
+      });
+    }"""
+
     async with async_playwright() as p:
         browser = await p.chromium.launch(
             headless=True,
@@ -939,6 +950,7 @@ async def screenshot_x_tweet_by_id(username: str, tweet_id: str) -> Optional[Ima
 
             await page.add_style_tag(content=hide_css)
             await page.wait_for_timeout(1000)
+            await page.evaluate(unstick_js)
 
             content = await page.locator("body").inner_text(timeout=5000)
             lowered = content.lower()
@@ -962,6 +974,7 @@ async def screenshot_x_tweet_by_id(username: str, tweet_id: str) -> Optional[Ima
                     if any(str(tweet_id) in str(href) for href in hrefs):
                         await article.scroll_into_view_if_needed()
                         await page.wait_for_timeout(500)
+                        await page.evaluate(unstick_js)
                         image_bytes = await article.screenshot()
                         return Image.open(io.BytesIO(image_bytes))
                 except Exception as e:
@@ -971,6 +984,7 @@ async def screenshot_x_tweet_by_id(username: str, tweet_id: str) -> Optional[Ima
                 article = articles[0]
                 await article.scroll_into_view_if_needed()
                 await page.wait_for_timeout(500)
+                await page.evaluate(unstick_js)
                 image_bytes = await article.screenshot()
                 return Image.open(io.BytesIO(image_bytes))
 

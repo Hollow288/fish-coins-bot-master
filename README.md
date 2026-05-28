@@ -188,6 +188,25 @@ agent <自然语言查询>
 - 支持 `.mp4`、`.mkv`、`.webm`、`.mov`、`.avi`。
 - 同步到 MinIO 的 `big-file/movies/` 后，本地文件会重命名为 `.uploaded` 标记。
 
+### translate
+
+翻译插件，入口为 `fish_coins_bot/plugins/translate/__init__.py`。
+
+触发方式：
+
+| 触发 | 说明 |
+| --- | --- |
+| 回复任意消息发送 `翻译` | 被回复消息含图片时走图片翻译接口；不含图片但有文本时走文本 AI 翻译 |
+
+相关配置：
+
+- `TRANSLATE_IMAGE_BASE_URI`：图片翻译服务地址，例如 `http://localhost:5777`。
+- `TRANSLATE_IMAGE_APIKEY`：图片翻译接口 API Key；留空时图片翻译回退使用 `AI_TEXT_APIKEY`。
+- `TRANSLATE_TARGET_LANGUAGE`：翻译目标语言，默认 `中文`。
+- `TRANSLATE_MIN_CONFIDENCE`：图片文字识别置信度阈值，留空使用接口默认值。
+- `TRANSLATE_POLL_INTERVAL_SECONDS`、`TRANSLATE_TIMEOUT_SECONDS`：图片任务轮询间隔和最长等待时间。
+- 文本翻译复用 `AI_TEXT_URI` / `AI_TEXT_APIKEY`。
+
 ### persona_mirror
 
 人设模仿插件，入口为 `fish_coins_bot/plugins/persona_mirror/__init__.py`。
@@ -264,3 +283,53 @@ agent <自然语言查询>
 
 - `sticker_asset`：全局唯一表情包资产，按 `content_sha256` 去重，含 AI 识别结果。
 - `sticker_usage`：用户与表情包的使用记录，`(sticker_id, user_id)` 唯一。
+
+## 插件触发条件总览
+
+说明：
+
+- 下表按 `fish_coins_bot/plugins` 中实际注册的 `on_command`、`on_message`、`on_notice` 和 APScheduler 定时任务整理。
+- 普通指令是否需要 `/` 前缀取决于 `COMMAND_START`；当前 `.env.example` 配置包含空前缀和 `/`，所以下表用裸命令展示。
+- “需要 @”只表示代码里显式使用了 `to_me()` 或等价的 @/回复条件；普通群聊指令不需要 @ 机器人。
+
+| 插件 | 功能 | 指令 / 触发方式 | 私聊触发 | 群聊触发 | 管理员专属 | 需要 @ | 回复触发 | 额外触发条件 | 优先级 / 阻断 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `hotta_wiki` | 帮助菜单 | `帮助`；别名：`help`、`菜单` | 否 | 是 | 否 | 是 | 否 | 群聊消息且 `to_me()`；存在 `wiki-help.png` 时发图 | `10 / 是` |
+| `hotta_wiki` | 武器图鉴 | `武器图鉴 <名称>`；别名：`武器信息` | 否 | 是 | 否 | 否 | 否 | 参数非空；武器别名归一后存在对应图片才响应 | `10 / 是` |
+| `hotta_wiki` | 武器详情 / 模组 | `武器详情 <名称>`；别名：`武器攻击`、`武器模组图鉴`、`模组图鉴`、`攻击模组图鉴`、`攻击图鉴`、`武器模组` | 否 | 是 | 否 | 否 | 否 | 参数非空；武器别名归一后存在对应图片才响应 | `10 / 是` |
+| `hotta_wiki` | 意志图鉴 | `意志图鉴 <名称>`；别名：`意志` | 否 | 是 | 否 | 否 | 否 | 参数非空；意志别名归一后存在对应图片才响应 | `10 / 是` |
+| `hotta_wiki` | 源器图鉴 | `源器图鉴 <名称>`；别名：`源器` | 否 | 是 | 否 | 否 | 否 | 参数非空；源器别名归一后存在对应图片才响应 | `10 / 是` |
+| `hotta_wiki` | 食物 / 食材图鉴 | `食物图鉴 <名称>`；别名：`食谱`、`食材图鉴`、`食材`、`烹饪图鉴`、`食物` | 否 | 是 | 否 | 否 | 否 | 参数非空；存在对应图片才响应 | `10 / 是` |
+| `hotta_wiki` | 时装图鉴 | `时装图鉴 <名称>`；别名：`时装` | 否 | 是 | 否 | 否 | 否 | 参数非空；存在对应图片才响应 | `10 / 是` |
+| `hotta_wiki` | 活动资讯 | `活动资讯`；别名：`近期活动`、`塔塔活动` | 否 | 是 | 否 | 否 | 否 | 存在 `event-news.png` 时发图 | `10 / 是` |
+| `hotta_wiki` | 幻塔十连抽卡 | `塔塔抽卡`；别名：`幻塔抽卡`、`幻塔十连`、`塔塔十连` | 否 | 是 | 否 | 否 | 否 | 每个 QQ 每天只能抽一次；依赖 `gacha_record` 和抽卡素材 | `10 / 是` |
+| `hotta_wiki` | 戳一戳问候 | 群聊戳一戳机器人 | 否 | 是 | 否 | 否 | 否 | `PokeNotifyEvent` 且目标是机器人自己 | 未显式设置 |
+| `hotta_wiki` | AI 兜底回复 | 群聊 @ 机器人或回复机器人 | 否 | 是 | 否 | 是 | 是 | `to_me()`；会读取群聊上下文，可搭配 `sticker_collector` 候选表情包 | `99 / 是` |
+| `hotta_wiki` | 活动图生成 | 定时：每天 `00:05`、`05:05`、`12:05` | 否 | 否 | 否 | 否 | 否 | 仅重新生成 `event-news.png`，不主动发消息 | 定时任务 |
+| `hotta_wiki` | 即将结束活动提醒 | 定时：每天 `12:30` | 否 | 是，主动推送 | 否 | 否 | 否 | 有 7 天内即将结束的活动时，向所有群推送提醒图 | 定时任务 |
+| `hotta_wiki` | 特殊凭证提醒 | 定时：每月最后一天 `18:30` | 否 | 是，主动推送 | 否 | 否 | 否 | 向所有群推送 `special_voucher.png` | 定时任务 |
+| `bilibili` | 直播状态推送 | 定时：每 `10` 秒 | 否 | 是，主动推送 | 否 | 否 | 否 | `bot_live_state.del_flag=0`；直播状态变化才推送 | 定时任务 |
+| `bilibili` | B 站动态推送 | 定时：每 `60` 秒 | 否 | 是，主动推送 | 否 | 否 | 否 | 读取 `dynamics_list.json` 的 `bilibili` 段；需 B 站 Cookie；只推送新动态 | 定时任务 |
+| `x_monitor` | X / Twitter 推文推送 | 定时：每 `X_DYNAMICS_INTERVAL_SECONDS` 秒，默认 `60` | 否 | 是，主动推送 | 否 | 否 | 否 | 读取 `dynamics_list.json` 的 `x` 段；需 `twscrape` 与 X Cookie；默认过滤回复和转推 | 定时任务 |
+| `delta_force` | 三角洲密码房 | `密码房密码`；别名：`密码房`、`三角洲密码房`、`三角洲密码`、`三角洲钥匙房`、`鼠鼠行动密码房`、`密码`、`今日密码` | 否 | 是 | 否 | 否 | 否 | 仅群聊；渲染密码房图片 | `10 / 是` |
+| `ai_chat` | 文本 AI | `chat <文本>`；别名：`ai` | 是 | 否 | 是，`ADMIN_ID` | 否 | 否 | 参数非空；非管理员会被静默忽略 | `10 / 是` |
+| `ai_chat` | 图片 AI | `image <提示词>`；别名：`images` | 是 | 否 | 是，`ADMIN_ID` | 否 | 否 | 参数非空；从当前消息中取第一张图片作为输入 | `10 / 是` |
+| `ai_chat` | 去文字 / 清理文本 | `remove <文本>`；别名：`clear` | 是 | 否 | 是，`ADMIN_ID` | 否 | 否 | 参数非空；调用 `AI_REMOVE_TEXT_URI` | `10 / 是` |
+| `agent` | 图鉴别名 Agent 查询 | `agent <自然语言查询>` | 是 | 是 | 否 | 否 | 否 | 参数非空；需 `AGENT_ASK_URI` / `AGENT_ASK_APIKEY`；只处理路由到 `alias` Agent 的结果 | `10 / 是` |
+| `download` | 视频下载 | `下载视频 <url>`；别名：`视频` | 是 | 否 | 是，`ADMIN_ID` | 否 | 否 | 参数非空；后台启动下载任务，非管理员会被静默忽略 | `10 / 是` |
+| `translate` | 翻译插件 | 回复任意消息发送 `翻译` | 是 | 是 | 否 | 否 | 是 | 被回复消息含图片时提交图片翻译任务并轮询结果图；不含图片但有文本时复用文本 AI 翻译 | `10 / 是` |
+| `persona_mirror` | 人设帮助 | `人设帮助`；别名：`persona帮助` | 是 | 是 | 否 | 否 | 否 | 无额外校验 | `10 / 是` |
+| `persona_mirror` | 绑定目标 | `人设绑定 <QQ号> [备注名]`；别名：`persona_bind` | 是 | 是 | 是，`PERSONA_ADMIN_IDS` / `ADMIN_ID`，未配置则不限制 | 否 | 否 | 绑定后自动开启采集和自动回复 | `10 / 是` |
+| `persona_mirror` | 开启目标 | `人设开启 <QQ号>`；别名：`persona_on` | 是 | 是 | 是，`PERSONA_ADMIN_IDS` / `ADMIN_ID`，未配置则不限制 | 否 | 否 | 目标必须已绑定 | `10 / 是` |
+| `persona_mirror` | 关闭目标 | `人设关闭 <QQ号>`；别名：`persona_off` | 是 | 是 | 是，`PERSONA_ADMIN_IDS` / `ADMIN_ID`，未配置则不限制 | 否 | 否 | 目标必须已绑定 | `10 / 是` |
+| `persona_mirror` | 设置触发关键词 | `人设关键词 <QQ号> <关键词1> [关键词2] ...`；别名：`persona_keywords` | 是 | 是 | 是，`PERSONA_ADMIN_IDS` / `ADMIN_ID`，未配置则不限制 | 否 | 否 | 至少传入 QQ 号和一个关键词 | `10 / 是` |
+| `persona_mirror` | 查看触发关键词 | `人设看关键词 [QQ号]`；别名：`persona_show_keywords` | 是 | 是 | 是，`PERSONA_ADMIN_IDS` / `ADMIN_ID`，未配置则不限制 | 否 | 否 | 不传 QQ 时，需要能唯一确定一个启用目标 | `10 / 是` |
+| `persona_mirror` | 查看人设状态 | `人设状态`；别名：`persona_status` | 是 | 是 | 是，`PERSONA_ADMIN_IDS` / `ADMIN_ID`，未配置则不限制 | 否 | 否 | 列出目标、消息数、总结进度和常用 QQ 表情 | `10 / 是` |
+| `persona_mirror` | 强制画像总结 | `人设总结 [QQ号]`；别名：`persona_summary` | 是 | 是 | 是，`PERSONA_ADMIN_IDS` / `ADMIN_ID`，未配置则不限制 | 否 | 否 | 不传 QQ 时，需要能唯一确定一个启用目标 | `10 / 是` |
+| `persona_mirror` | 查看 / 设置冷却 | `模仿冷却 [秒数]`；别名：`persona_cooldown` | 是 | 是 | 是，`PERSONA_ADMIN_IDS` / `ADMIN_ID`，未配置则不限制 | 否 | 否 | 不传参数查看当前冷却；传整数秒数则临时覆盖 | `10 / 是` |
+| `persona_mirror` | 手动模仿说话 | `学他说话 [QQ号] <想表达的话>`；别名：`persona_speak` | 是 | 是 | 是，`PERSONA_ADMIN_IDS` / `ADMIN_ID`，未配置则不限制 | 否 | 否 | 目标必须可解析；群聊中会附带最近上下文 | `10 / 是` |
+| `persona_mirror` | 人设消息采集 | 任意群聊 / 私聊消息 | 是 | 是 | 否 | 否 | 否，仅记录回复关系 | 发送者不是机器人；发送者是已绑定且 `enabled=True` 的目标 | `1 / 否` |
+| `persona_mirror` | 自动模仿回复 | 群聊 @ 被模仿目标、回复目标，或文本包含目标触发关键词 | 否 | 是 | 否 | 可选 | 是，回复目标 | 目标启用自动回复；未处于冷却；当前群采集过该目标；画像存在且消息数达标；多目标命中时取最高分 | `20 / 否` |
+| `persona_mirror` | 自动画像总结 | 定时：每 `PERSONA_SUMMARY_INTERVAL_MINUTES` 分钟，默认 `30` | 否 | 否 | 否 | 否 | 否 | `PERSONA_SCHEDULER_ENABLED=true`；目标启用；新增消息达到阈值 | 定时任务 |
+| `sticker_collector` | 表情包采集 | 任意群聊 / 私聊消息 | 是 | 是 | 否 | 否 | 否 | `STICKER_COLLECTOR_ENABLED=true`；发送者不是机器人；消息含带 `url` 的 `image`、`mface` 或 `marketface` 段 | `1 / 否` |
+| `sticker_collector` | 表情包 AI 识别 | 定时：每 `STICKER_RECOGNIZE_INTERVAL_MINUTES` 分钟，默认 `10` | 否 | 否 | 否 | 否 | 否 | `STICKER_RECOGNIZE_ENABLED=true`；处理 `recognize_status='pending'` 的表情包 | 定时任务 |
