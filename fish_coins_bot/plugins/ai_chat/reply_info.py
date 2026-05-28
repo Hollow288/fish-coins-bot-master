@@ -66,6 +66,7 @@ async def call_image_api(message: str, user_id: str,img_base64: str,mime_type :s
     """
     async with httpx.AsyncClient(timeout=70) as client:
         for attempt in range(retries):
+            response: httpx.Response | None = None
             try:
                 response = await client.post(
                     AI_IMAGE_URI,
@@ -87,7 +88,8 @@ async def call_image_api(message: str, user_id: str,img_base64: str,mime_type :s
             except Exception as e:
                 # 这里可以打印日志或记录错误
                 logger.error(f"尝试第 {attempt+1} 次失败: {e}")
-                logger.error(f"解析 JSON 出错 response: {response.text}")
+                if response is not None:
+                    logger.error(f"解析 JSON 出错 response: {response.text}")
     return None
 
 

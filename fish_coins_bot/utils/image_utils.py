@@ -321,7 +321,7 @@ async def make_event_news():
 
             event = are_info_list[index]
 
-            title_text = f">>> {event["news_title"]}"
+            title_text = f">>> {event['news_title']}"
             start_time_text = f"开始时间: {format_datetime_with_timezone(event['news_start'])}"
             end_time_text = f"结束时间: {format_datetime_with_timezone(event['news_end'])}"
 
@@ -383,7 +383,7 @@ async def make_event_news():
 
             event = will_info_list[i]
 
-            title_text = f">>> {event["news_title"]}"
+            title_text = f">>> {event['news_title']}"
             start_time_text = f"开始时间: {format_datetime_with_timezone(event['news_start'])}"
             end_time_text = f"结束时间: {format_datetime_with_timezone(event['news_end'])}"
 

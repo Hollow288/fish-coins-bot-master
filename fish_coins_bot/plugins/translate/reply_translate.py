@@ -256,7 +256,8 @@ async def _translate_image(image_url: str) -> bytes:
     if not config.base_uri or not config.api_key:
         raise RuntimeError(
             "图片翻译接口未配置，请设置 TRANSLATE_IMAGE_BASE_URI "
-            "和 TRANSLATE_IMAGE_APIKEY。"
+            "或 TRANSLATE_IMAGE_SUBMIT_URI，并设置 TRANSLATE_IMAGE_APIKEY "
+            "或 AI_TEXT_APIKEY。"
         )
 
     source_image = await _download_image(image_url, config.request_timeout_seconds)

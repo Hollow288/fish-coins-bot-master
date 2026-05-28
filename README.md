@@ -2,6 +2,15 @@
 
 基于 NoneBot2 和 OneBot v11 的 QQ 群机器人。当前插件都位于 `fish_coins_bot/plugins`，本文只介绍本地插件。
 
+## 基础配置
+
+配置项以 `.env.example` 为准，常用全局项如下：
+
+- `HOST`、`PORT`、`COMMAND_START`、`COMMAND_SEP`：NoneBot 启动与指令匹配配置。
+- `DATABASE_USERNAME`、`DATABASE_PASSWORD`、`DATABASE_HOST`、`DATABASE_PORT`、`DATABASE_NAME`：Tortoise ORM 使用的 MySQL 连接配置。
+- `ENDPOINT`、`ACCESS_KEY`、`SECRET_KEY`：MinIO 客户端配置，视频下载和表情包采集会使用。
+- `MINIO_HOST`、`FONT_HOST`、`BACKGROUND_HOST`：图片生成所需素材、字体和背景图 URL 前缀。
+
 ## 插件清单
 
 ### hotta_wiki
@@ -57,7 +66,7 @@ B 站直播和动态推送插件，入口为 `fish_coins_bot/plugins/bilibili/__
 - 每 10 秒检查 `bot_live_state` 中配置的直播间，状态变化时推送开播图或下播时长。
 - 启动时同步一次直播间当前状态，避免重启后误判开播/下播。
 - 每 60 秒读取 `dynamics_list.json` 中配置的 B 站 UID，检测图文、文字、专栏和视频动态。
-- 新动态会通过 Playwright 截图后推送到配置群；超过 2 小时的旧动态只记入去重记录，不再推送。
+- 新动态会通过 Playwright 截图后推送到配置群；超过 12 分钟的旧动态只记入去重记录，不再推送。
 
 相关文件和表：
 
@@ -96,13 +105,18 @@ B 站直播和动态推送插件，入口为 `fish_coins_bot/plugins/bilibili/__
 
 旧格式 `{"B站UID": [群号1, 群号2]}` 仍会按 B 站配置兼容读取。
 
+相关配置：
+
+- `DYNAMICS_LIST_PATH`：可选，覆盖跨平台动态推送配置文件路径。
+- `BILI_SESSDATA`、`BILI_JCT`、`BILI_BUVID3`：B 站登录 Cookie；当前动态推送走关注时间线，bot 账号需要先关注配置里的 UP 主。
+
 ### x_monitor
 
 X/Twitter 推文推送插件，入口为 `fish_coins_bot/plugins/x_monitor/__init__.py`。
 
 主要功能：
 
-- 每 60 秒读取 `dynamics_list.json` 中 `x` 段配置的用户名。
+- 默认每 60 秒读取 `dynamics_list.json` 中 `x` 段配置的用户名。
 - 使用 `twscrape` 和 X Cookie 拉取用户最新推文，默认过滤回复和转推。
 - 按 `dynamics_history` 中的 `platform + uid + id_str` 去重。
 - 新推文会打开 `https://x.com/<用户名>/status/<tweet_id>` 并通过 Playwright 截图后推送到配置群。
@@ -112,6 +126,9 @@ X/Twitter 推文推送插件，入口为 `fish_coins_bot/plugins/x_monitor/__ini
 
 - `X_AUTH_TOKEN`、`X_CT0`、`X_TWID`：X 登录 Cookie，配置方式类似 B 站的 `BILI_SESSDATA`、`BILI_JCT`、`BILI_BUVID3`。
 - `X_DYNAMICS_INTERVAL_SECONDS`、`X_FETCH_LIMIT`、`X_INCLUDE_REPLIES`、`X_INCLUDE_RETWEETS`：轮询与过滤配置。
+- `X_DYNAMIC_MAX_AGE_SECONDS`：旧推文只记入去重历史、不推送的时间阈值，默认 720 秒。
+- `X_SEND_TEXT_FALLBACK`：推文截图失败时是否退化为文字和链接推送，默认开启。
+- `X_TWSCRAPE_DB`：可选，指定 `twscrape` 账号数据库路径；不填时使用临时目录。
 
 相关表：
 
@@ -188,6 +205,11 @@ agent <自然语言查询>
 - 支持 `.mp4`、`.mkv`、`.webm`、`.mov`、`.avi`。
 - 同步到 MinIO 的 `big-file/movies/` 后，本地文件会重命名为 `.uploaded` 标记。
 
+相关配置：
+
+- `ADMIN_ID`：允许使用下载指令的管理员 QQ。
+- `ENDPOINT`、`ACCESS_KEY`、`SECRET_KEY`：MinIO 客户端配置。
+
 ### translate
 
 翻译插件，入口为 `fish_coins_bot/plugins/translate/__init__.py`。
@@ -201,10 +223,12 @@ agent <自然语言查询>
 相关配置：
 
 - `TRANSLATE_IMAGE_BASE_URI`：图片翻译服务地址，例如 `http://localhost:5777`。
+- `TRANSLATE_IMAGE_SUBMIT_URI`：兼容旧配置；填完整提交接口时会自动推导 `TRANSLATE_IMAGE_BASE_URI`。
 - `TRANSLATE_IMAGE_APIKEY`：图片翻译接口 API Key；留空时图片翻译回退使用 `AI_TEXT_APIKEY`。
 - `TRANSLATE_TARGET_LANGUAGE`：翻译目标语言，默认 `中文`。
 - `TRANSLATE_MIN_CONFIDENCE`：图片文字识别置信度阈值，留空使用接口默认值。
 - `TRANSLATE_POLL_INTERVAL_SECONDS`、`TRANSLATE_TIMEOUT_SECONDS`：图片任务轮询间隔和最长等待时间。
+- `TRANSLATE_REQUEST_TIMEOUT_SECONDS`：下载图片、提交任务、查询结果和文本翻译的单次请求超时时间。
 - 文本翻译复用 `AI_TEXT_URI` / `AI_TEXT_APIKEY`。
 
 ### persona_mirror
@@ -223,7 +247,7 @@ agent <自然语言查询>
 
 管理指令：
 
-这些指令默认仅 `PERSONA_ADMIN_IDS` 或 `ADMIN_ID` 可用；两者都未配置时不限制。
+除 `人设帮助` 外，这些管理指令默认仅 `PERSONA_ADMIN_IDS` 或 `ADMIN_ID` 可用；两者都未配置时不限制。
 
 | 指令 | 别名 | 说明 |
 | --- | --- | --- |
@@ -245,6 +269,14 @@ agent <自然语言查询>
 - 定时任务每 `PERSONA_SUMMARY_INTERVAL_MINUTES` 分钟检查启用目标，新增消息达到阈值后自动生成增量画像。
 - 自动回复前会检查当前群是否采集过该目标、目标是否已有画像、画像消息数是否达到 `PERSONA_AUTO_REPLY_MIN_MESSAGE_COUNT`，并受冷却时间限制。
 - 自动回复结果会写入 `persona_auto_reply_log`。
+
+相关配置：
+
+- `PERSONA_ADMIN_IDS`、`ADMIN_ID`：管理指令权限。
+- `PERSONA_SUMMARY_BATCH_SIZE`、`PERSONA_SUMMARY_SAMPLE_SIZE`、`PERSONA_SUMMARY_INTERVAL_MINUTES`、`PERSONA_SCHEDULER_ENABLED`：画像总结批量、采样和定时任务配置。
+- `PERSONA_SPEAK_SAMPLE_SIZE`、`PERSONA_RECENT_CONTEXT_SIZE`：手动/自动模仿时使用的历史样本和最近上下文数量。
+- `PERSONA_AUTO_REPLY_COOLDOWN_SECONDS`、`PERSONA_AUTO_REPLY_MIN_KEYWORD_LENGTH`、`PERSONA_AUTO_REPLY_MIN_MESSAGE_COUNT`：自动模仿触发限制。
+- 人设总结和模仿复用 `AI_TEXT_URI` / `AI_TEXT_APIKEY`。
 
 相关表：
 
@@ -279,6 +311,13 @@ agent <自然语言查询>
 - AI 识别会写入 `is_suitable_sticker`、`sticker_meaning`、`emotion_tag`、`recognize_status` 等字段。
 - 回复候选池每 5 分钟刷新一次，综合分为“发送人数 * 10 + log(1 + 总发送次数)”。
 
+相关配置：
+
+- `STICKER_COLLECTOR_ENABLED`、`STICKER_COLLECTOR_MAX_SIZE_BYTES`：采集开关和文件大小上限。
+- `STICKER_RECOGNIZE_ENABLED`、`STICKER_RECOGNIZE_INTERVAL_MINUTES`、`STICKER_RECOGNIZE_BATCH_SIZE`、`STICKER_RECOGNIZE_MAX_ATTEMPTS`、`STICKER_RECOGNIZE_THROTTLE_MS`：AI 识别任务配置。
+- `AI_IMAGE_RECOGNIZE_URI`、`AI_IMAGE_RECOGNIZE_APIKEY`：图片识别接口。
+- `ENDPOINT`、`ACCESS_KEY`、`SECRET_KEY`：MinIO 客户端配置。
+
 相关表：
 
 - `sticker_asset`：全局唯一表情包资产，按 `content_sha256` 去重，含 AI 识别结果。
@@ -309,7 +348,7 @@ agent <自然语言查询>
 | `hotta_wiki` | 即将结束活动提醒 | 定时：每天 `12:30` | 否 | 是，主动推送 | 否 | 否 | 否 | 有 7 天内即将结束的活动时，向所有群推送提醒图 | 定时任务 |
 | `hotta_wiki` | 特殊凭证提醒 | 定时：每月最后一天 `18:30` | 否 | 是，主动推送 | 否 | 否 | 否 | 向所有群推送 `special_voucher.png` | 定时任务 |
 | `bilibili` | 直播状态推送 | 定时：每 `10` 秒 | 否 | 是，主动推送 | 否 | 否 | 否 | `bot_live_state.del_flag=0`；直播状态变化才推送 | 定时任务 |
-| `bilibili` | B 站动态推送 | 定时：每 `60` 秒 | 否 | 是，主动推送 | 否 | 否 | 否 | 读取 `dynamics_list.json` 的 `bilibili` 段；需 B 站 Cookie；只推送新动态 | 定时任务 |
+| `bilibili` | B 站动态推送 | 定时：每 `60` 秒 | 否 | 是，主动推送 | 否 | 否 | 否 | 读取 `dynamics_list.json` 的 `bilibili` 段；需 B 站 Cookie；只推送 12 分钟内的新动态 | 定时任务 |
 | `x_monitor` | X / Twitter 推文推送 | 定时：每 `X_DYNAMICS_INTERVAL_SECONDS` 秒，默认 `60` | 否 | 是，主动推送 | 否 | 否 | 否 | 读取 `dynamics_list.json` 的 `x` 段；需 `twscrape` 与 X Cookie；默认过滤回复和转推 | 定时任务 |
 | `delta_force` | 三角洲密码房 | `密码房密码`；别名：`密码房`、`三角洲密码房`、`三角洲密码`、`三角洲钥匙房`、`鼠鼠行动密码房`、`密码`、`今日密码` | 否 | 是 | 否 | 否 | 否 | 仅群聊；渲染密码房图片 | `10 / 是` |
 | `ai_chat` | 文本 AI | `chat <文本>`；别名：`ai` | 是 | 否 | 是，`ADMIN_ID` | 否 | 否 | 参数非空；非管理员会被静默忽略 | `10 / 是` |
