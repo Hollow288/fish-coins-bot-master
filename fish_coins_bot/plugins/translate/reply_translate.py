@@ -305,7 +305,7 @@ async def handle_reply_translate(bot: Bot, event: GroupMessageEvent | PrivateMes
     image_data = _extract_first_image_segment(reply_message)
     if image_data is not None:
         image_url = str(image_data.get("url") or "")
-        await reply_translate.send("图片翻译处理中，请稍等。")
+        # await reply_translate.send("图片翻译处理中，请稍等。")
         try:
             result_image = await _translate_image(image_url)
         except Exception as exc:
