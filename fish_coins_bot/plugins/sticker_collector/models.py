@@ -22,6 +22,9 @@ class StickerAsset(Model):
     emotion_tag = fields.CharField(
         max_length=32, null=True, index=True, description="AI给出的情绪标签(用于分桶)"
     )
+    is_blacklisted = fields.BooleanField(
+        default=False, index=True, description="管理员是否拉黑(拉黑后不再进AI回复候选)"
+    )
     recognize_attempts = fields.IntField(default=0, description="累计识别尝试次数")
     recognized_at = fields.DatetimeField(null=True, description="识别完成时间")
     recognize_error = fields.TextField(null=True, description="识别失败原因/原始返回")

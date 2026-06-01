@@ -4,6 +4,7 @@ from nonebot.plugin import PluginMetadata
 require("nonebot_plugin_apscheduler")
 
 from . import collector as collector  # noqa: F401
+from . import commands as commands  # noqa: F401
 from . import scheduler as scheduler  # noqa: F401
 
 __plugin_meta__ = PluginMetadata(

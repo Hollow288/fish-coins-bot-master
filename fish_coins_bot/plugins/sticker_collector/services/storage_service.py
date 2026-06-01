@@ -243,6 +243,25 @@ async def _upsert_sticker_usage(
     await usage.save()
 
 
+async def find_asset_by_content_url(url: str) -> StickerAsset | None:
+    """按图片 URL 下载并算 SHA256，匹配回 sticker_asset 里的那一行（找不到返回 None）。
+
+    与采集去重口径完全一致（同一份 _download_sticker_bytes + sha256），
+    用于「拉黑」等需要把一条被回复消息对应到库内资产的场景。
+    """
+    if not url:
+        return None
+    max_size_bytes = get_plugin_config().collector_max_size_bytes
+    download_result = await _download_sticker_bytes(url, max_size_bytes)
+    if download_result is None:
+        return None
+    content, _ = download_result
+    if not content:
+        return None
+    content_sha256 = hashlib.sha256(content).hexdigest()
+    return await StickerAsset.get_or_none(content_sha256=content_sha256)
+
+
 async def collect_stickers_from_event(event: Any) -> None:
     """主入口：扫描事件里所有表情包资源，下载/去重/上传/记录。
 

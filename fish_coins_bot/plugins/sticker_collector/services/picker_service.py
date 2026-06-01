@@ -42,6 +42,12 @@ def get_temporarily_blocked_sticker_ids(group_id: str | int) -> set[int]:
     return set()
 
 
+def invalidate_pool_cache() -> None:
+    """让候选池缓存立即失效，下次 pick 强制重新查库（拉黑后即时生效用）。"""
+    _cache["expires_at"] = 0.0
+    _cache["pool"] = []
+
+
 async def _fetch_object_bytes(bucket_name: str, object_name: str) -> bytes:
     def _read() -> bytes:
         response = minio_client.get_object(bucket_name, object_name)
@@ -68,6 +74,7 @@ async def _refresh_pool() -> list[StickerAsset]:
             ) u ON u.sticker_id = a.id
             WHERE a.is_suitable_sticker = 1
               AND a.recognize_status = 'done'
+              AND a.is_blacklisted = 0
             ORDER BY
               COALESCE(u.unique_user_count, 0) * %s + LOG(1 + a.used_count) DESC,
               a.used_count DESC,
@@ -80,7 +87,7 @@ async def _refresh_pool() -> list[StickerAsset]:
         logger.error(f"sticker picker 综合分排序失败，退回总次数排序: {exc}")
         return list(await (
             StickerAsset
-            .filter(is_suitable_sticker=True, recognize_status="done")
+            .filter(is_suitable_sticker=True, recognize_status="done", is_blacklisted=False)
             .order_by("-used_count", "-id")
             .limit(_POOL_SIZE)
         ))
@@ -165,6 +172,8 @@ async def get_sticker_segment(sticker_id: int) -> MessageSegment | None:
     """根据 sticker_id 取出 OneBot 图片消息段，找不到或拉取失败返回 None。"""
     asset = await StickerAsset.get_or_none(id=sticker_id)
     if asset is None or not asset.bucket_name or not asset.object_name:
+        return None
+    if asset.is_blacklisted:
         return None
     try:
         content = await _fetch_object_bytes(asset.bucket_name, asset.object_name)

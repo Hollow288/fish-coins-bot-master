@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS `sticker_asset` (
   `is_suitable_sticker` TINYINT(1) NULL COMMENT 'AI判断是否适合作为表情包',
   `sticker_meaning` TEXT NULL COMMENT 'AI给出的表情包含义',
   `emotion_tag` VARCHAR(32) NULL COMMENT 'AI给出的情绪标签(用于分桶)',
+  `is_blacklisted` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '管理员是否拉黑(拉黑后不再进AI回复候选)',
   `recognize_attempts` INT NOT NULL DEFAULT 0 COMMENT '累计识别尝试次数',
   `recognized_at` DATETIME(6) NULL COMMENT '识别完成时间',
   `recognize_error` TEXT NULL COMMENT '识别失败原因/原始返回',
@@ -29,7 +30,8 @@ CREATE TABLE IF NOT EXISTS `sticker_asset` (
   UNIQUE KEY `uk_sticker_asset_content_sha256` (`content_sha256`),
   KEY `idx_sticker_asset_content_md5` (`content_md5`),
   KEY `idx_sticker_asset_recognize_status` (`recognize_status`),
-  KEY `idx_sticker_asset_emotion_tag` (`emotion_tag`)
+  KEY `idx_sticker_asset_emotion_tag` (`emotion_tag`),
+  KEY `idx_sticker_asset_is_blacklisted` (`is_blacklisted`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='全局表情包资产';
 
 CREATE TABLE IF NOT EXISTS `sticker_usage` (
@@ -75,6 +77,28 @@ BEGIN
   ) THEN
     ALTER TABLE `sticker_asset`
       ADD KEY `idx_sticker_asset_emotion_tag` (`emotion_tag`);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'sticker_asset'
+      AND COLUMN_NAME = 'is_blacklisted'
+  ) THEN
+    ALTER TABLE `sticker_asset`
+      ADD COLUMN `is_blacklisted` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '管理员是否拉黑(拉黑后不再进AI回复候选)' AFTER `emotion_tag`;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM INFORMATION_SCHEMA.STATISTICS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'sticker_asset'
+      AND INDEX_NAME = 'idx_sticker_asset_is_blacklisted'
+  ) THEN
+    ALTER TABLE `sticker_asset`
+      ADD KEY `idx_sticker_asset_is_blacklisted` (`is_blacklisted`);
   END IF;
 END$$
 

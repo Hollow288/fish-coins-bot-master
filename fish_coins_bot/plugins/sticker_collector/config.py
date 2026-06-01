@@ -18,6 +18,11 @@ def _parse_int(value: str | None, default: int, minimum: int) -> int:
         return default
 
 
+def _parse_admin_ids(value: str | None) -> frozenset[str]:
+    raw = value or ""
+    return frozenset(item.strip() for item in raw.split(",") if item.strip())
+
+
 @dataclass(frozen=True)
 class StickerCollectorConfig:
     collector_enabled: bool
@@ -27,6 +32,8 @@ class StickerCollectorConfig:
     recognize_batch_size: int
     recognize_max_attempts: int
     recognize_throttle_ms: int
+    blacklist_enabled: bool
+    admin_ids: frozenset[str]
 
 
 @lru_cache(maxsize=1)
@@ -49,4 +56,6 @@ def get_plugin_config() -> StickerCollectorConfig:
         recognize_throttle_ms=_parse_int(
             os.getenv("STICKER_RECOGNIZE_THROTTLE_MS"), default=500, minimum=0
         ),
+        blacklist_enabled=_parse_bool(os.getenv("STICKER_BLACKLIST_ENABLED"), default=True),
+        admin_ids=_parse_admin_ids(os.getenv("ADMIN_ID")),
     )
