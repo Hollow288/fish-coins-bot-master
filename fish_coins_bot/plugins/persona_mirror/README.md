@@ -550,7 +550,7 @@ fish_coins_bot/plugins/persona_mirror/
 ### 7.2 管理员
 
 - `PERSONA_ADMIN_IDS` — 管理员 QQ 列表，英文逗号分隔。
-- `ADMIN_ID` — 单个管理员 QQ，作为回退值。如果都没配，所有人都可执行管理指令。
+- `ADMIN_ID` — 管理员 QQ，可英文逗号分隔多个，作为 `PERSONA_ADMIN_IDS` 的回退值。如果都没配，所有人都可执行管理指令。
 
 ### 7.3 画像总结
 

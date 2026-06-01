@@ -13,6 +13,7 @@ from nonebot.log import logger
 
 from fish_coins_bot.utils.ai_client import call_text_api
 from fish_coins_bot.utils.image_utils import get_first_image_base64_and_mime
+from fish_coins_bot.utils.admin_utils import parse_admin_ids
 
 
 def is_private_chat(event) -> bool:
@@ -32,7 +33,8 @@ load_dotenv()
 AI_IMAGE_URI = os.getenv("AI_IMAGE_URI")
 AI_IMAGE_APIKEY = os.getenv("AI_IMAGE_APIKEY")
 AI_REMOVE_TEXT_URI = os.getenv("AI_REMOVE_TEXT_URI")
-ADMIN_ID = os.getenv("ADMIN_ID")
+# 管理员 QQ 集合, 多个用英文逗号分隔; 留空则无人可用这些指令
+ADMIN_IDS = parse_admin_ids(os.getenv("ADMIN_ID"))
 
 
 @reply_chat.handle()
@@ -40,7 +42,7 @@ async def reply_chat_handle(bot: Bot, event: PrivateMessageEvent, args: Message 
     user_id = str(event.sender.user_id)
 
 
-    if str(user_id) == str(ADMIN_ID):
+    if user_id in ADMIN_IDS:
         if message := args.extract_plain_text():
             result = await call_text_api(message, user_id, log_tag="ai_chat")
             if result:
@@ -98,7 +100,7 @@ async def reply_image_handle(bot: Bot, event: PrivateMessageEvent, args: Message
     user_id = str(event.sender.user_id)
 
 
-    if str(user_id) == str(ADMIN_ID):
+    if user_id in ADMIN_IDS:
         if message := args.extract_plain_text():
             logger.info(f"图片指令消息event: {event}")
 
@@ -131,7 +133,7 @@ async def remove_chat_handle(bot: Bot, event: PrivateMessageEvent, args: Message
     user_id = str(event.sender.user_id)
 
 
-    if str(user_id) == str(ADMIN_ID):
+    if user_id in ADMIN_IDS:
         if message := args.extract_plain_text():
             result = await call_text_api(
                 message, user_id, uri=AI_REMOVE_TEXT_URI, log_tag="ai_chat.remove"

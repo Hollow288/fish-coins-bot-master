@@ -2,6 +2,8 @@ import os
 from dataclasses import dataclass
 from functools import lru_cache
 
+from fish_coins_bot.utils.admin_utils import parse_admin_ids
+
 
 def _parse_bool(value: str | None, default: bool) -> bool:
     if value is None:
@@ -16,11 +18,6 @@ def _parse_int(value: str | None, default: int, minimum: int) -> int:
         return max(int(value), minimum)
     except ValueError:
         return default
-
-
-def _parse_admin_ids(value: str | None) -> frozenset[str]:
-    raw = value or ""
-    return frozenset(item.strip() for item in raw.split(",") if item.strip())
 
 
 @dataclass(frozen=True)
@@ -57,5 +54,5 @@ def get_plugin_config() -> StickerCollectorConfig:
             os.getenv("STICKER_RECOGNIZE_THROTTLE_MS"), default=500, minimum=0
         ),
         blacklist_enabled=_parse_bool(os.getenv("STICKER_BLACKLIST_ENABLED"), default=True),
-        admin_ids=_parse_admin_ids(os.getenv("ADMIN_ID")),
+        admin_ids=parse_admin_ids(os.getenv("ADMIN_ID")),
     )

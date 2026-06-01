@@ -152,7 +152,7 @@ X/Twitter 推文推送插件，入口为 `fish_coins_bot/plugins/x_monitor/__ini
 
 私聊 AI 工具插件，入口为 `fish_coins_bot/plugins/ai_chat/__init__.py`。
 
-这些指令只响应私聊，并且只有 `ADMIN_ID` 能使用。
+这些指令只响应私聊，并且只有 `ADMIN_ID` 名单内的 QQ 能使用（多个用英文逗号分隔，留空则无人可用）。
 
 | 指令 | 别名 | 说明 |
 | --- | --- | --- |
@@ -193,7 +193,7 @@ agent <自然语言查询>
 
 私聊视频下载插件，入口为 `fish_coins_bot/plugins/download/__init__.py`。
 
-这些指令只响应私聊，并且只有 `ADMIN_ID` 能使用。
+这些指令只响应私聊，并且只有 `ADMIN_ID` 名单内的 QQ 能使用（多个用英文逗号分隔，留空则无人可用）。
 
 | 指令 | 别名 | 说明 |
 | --- | --- | --- |
@@ -207,7 +207,7 @@ agent <自然语言查询>
 
 相关配置：
 
-- `ADMIN_ID`：允许使用下载指令的管理员 QQ。
+- `ADMIN_ID`：允许使用下载指令的管理员 QQ，多个用英文逗号分隔。
 - `ENDPOINT`、`ACCESS_KEY`、`SECRET_KEY`：MinIO 客户端配置。
 
 ### translate
