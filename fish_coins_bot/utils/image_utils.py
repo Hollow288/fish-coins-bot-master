@@ -21,6 +21,7 @@ from jinja2 import Environment, FileSystemLoader
 from datetime import datetime, timedelta
 
 from fish_coins_bot.database.hotta.event_news import EventNews
+from fish_coins_bot.utils.push_alert import PushFailure, WAF
 from fish_coins_bot.utils.model_utils import the_font_bold,  make_wiki_help_img_url, days_diff_from_now, \
     format_datetime_with_timezone, make_event_news_end_url, make_food_img_url, tag_different_colors, \
     delta_force_map_abbreviation, clean_keyword, get_waf_cookie, common_fetch_door_pin_response, \
@@ -844,7 +845,7 @@ async def screenshot_opus_by_id(id_str: str) -> Optional[Image.Image]:
             title = await page.title()
             if "出错啦" in title:
                 logger.error(f"[opus 截图] 页面风控 id={id_str} title={title!r}")
-                return None
+                raise PushFailure(WAF, f"opus 页风控 id={id_str}")
 
             for selector in selectors:
                 el = await page.query_selector(selector)
@@ -956,7 +957,7 @@ async def screenshot_x_tweet_by_id(username: str, tweet_id: str) -> Optional[Ima
             lowered = content.lower()
             if "something went wrong" in lowered or "rate limit" in lowered:
                 logger.error(f"[X 截图] 页面异常 tweet_id={tweet_id} url={url}")
-                return None
+                raise PushFailure(WAF, f"X 推文页风控/限流 tweet_id={tweet_id}")
 
             try:
                 await page.wait_for_selector("article", timeout=12000)

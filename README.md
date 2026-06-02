@@ -67,6 +67,7 @@ B 站直播和动态推送插件，入口为 `fish_coins_bot/plugins/bilibili/__
 - 启动时同步一次直播间当前状态，避免重启后误判开播/下播。
 - 每 60 秒读取 `dynamics_list.json` 中配置的 B 站 UID，检测图文、文字、专栏和视频动态。
 - 新动态会通过 Playwright 截图后推送到配置群；超过 12 分钟的旧动态只记入去重记录，不再推送。
+- 拉取或截图连续失败（如 feed/all 风控 412、登录态失效、opus 页被风控）达到阈值时，自动私信 `ADMIN_ID` 管理员，恢复后补发「已恢复」；逻辑见 `fish_coins_bot/utils/push_alert.py`，与 `x_monitor` 共用。
 
 相关文件和表：
 
@@ -109,6 +110,7 @@ B 站直播和动态推送插件，入口为 `fish_coins_bot/plugins/bilibili/__
 
 - `DYNAMICS_LIST_PATH`：可选，覆盖跨平台动态推送配置文件路径。
 - `BILI_SESSDATA`、`BILI_JCT`、`BILI_BUVID3`：B 站登录 Cookie；当前动态推送走关注时间线，bot 账号需要先关注配置里的 UP 主。
+- `DYNAMICS_ALERT_ENABLED`、`DYNAMICS_ALERT_FAIL_THRESHOLD`：动态推送故障报警开关与连续失败阈值（不配时默认开启、阈值 3，约 3 分钟），报警私信复用 `ADMIN_ID`；`ADMIN_ID` 留空则不报警也不报错。与 `x_monitor` 插件共用。
 
 ### x_monitor
 
@@ -121,6 +123,7 @@ X/Twitter 推文推送插件，入口为 `fish_coins_bot/plugins/x_monitor/__ini
 - 按 `dynamics_history` 中的 `platform + uid + id_str` 去重。
 - 新推文会打开 `https://x.com/<用户名>/status/<tweet_id>` 并通过 Playwright 截图后推送到配置群。
 - 超过 `X_DYNAMIC_MAX_AGE_SECONDS` 的旧推文只记入去重记录，不再推送。
+- 拉取或推文截图连续失败（如 X 限流、Cookie 失效、推文页被风控）达到阈值时，自动私信 `ADMIN_ID` 管理员，恢复后补发「已恢复」；与 `bilibili` 插件共用 `push_alert.py`。截图失败但 `X_SEND_TEXT_FALLBACK` 开启时仍会用文字把推文发出去。
 
 相关配置：
 
@@ -129,6 +132,7 @@ X/Twitter 推文推送插件，入口为 `fish_coins_bot/plugins/x_monitor/__ini
 - `X_DYNAMIC_MAX_AGE_SECONDS`：旧推文只记入去重历史、不推送的时间阈值，默认 720 秒。
 - `X_SEND_TEXT_FALLBACK`：推文截图失败时是否退化为文字和链接推送，默认开启。
 - `X_TWSCRAPE_DB`：可选，指定 `twscrape` 账号数据库路径；不填时使用临时目录。
+- `DYNAMICS_ALERT_ENABLED`、`DYNAMICS_ALERT_FAIL_THRESHOLD`、`ADMIN_ID`：动态推送故障报警，与 `bilibili` 插件共用，详见 `bilibili` 段。
 
 相关表：
 
@@ -348,8 +352,8 @@ agent <自然语言查询>
 | `hotta_wiki` | 即将结束活动提醒 | 定时：每天 `12:30` | 否 | 是，主动推送 | 否 | 否 | 否 | 有 7 天内即将结束的活动时，向所有群推送提醒图 | 定时任务 |
 | `hotta_wiki` | 特殊凭证提醒 | 定时：每月最后一天 `18:30` | 否 | 是，主动推送 | 否 | 否 | 否 | 向所有群推送 `special_voucher.png` | 定时任务 |
 | `bilibili` | 直播状态推送 | 定时：每 `10` 秒 | 否 | 是，主动推送 | 否 | 否 | 否 | `bot_live_state.del_flag=0`；直播状态变化才推送 | 定时任务 |
-| `bilibili` | B 站动态推送 | 定时：每 `60` 秒 | 否 | 是，主动推送 | 否 | 否 | 否 | 读取 `dynamics_list.json` 的 `bilibili` 段；需 B 站 Cookie；只推送 12 分钟内的新动态 | 定时任务 |
-| `x_monitor` | X / Twitter 推文推送 | 定时：每 `X_DYNAMICS_INTERVAL_SECONDS` 秒，默认 `60` | 否 | 是，主动推送 | 否 | 否 | 否 | 读取 `dynamics_list.json` 的 `x` 段；需 `twscrape` 与 X Cookie；默认过滤回复和转推 | 定时任务 |
+| `bilibili` | B 站动态推送 | 定时：每 `60` 秒 | 否 | 是，主动推送 | 否 | 否 | 否 | 读取 `dynamics_list.json` 的 `bilibili` 段；需 B 站 Cookie；只推送 12 分钟内的新动态；连续失败达阈值时私信 `ADMIN_ID` | 定时任务 |
+| `x_monitor` | X / Twitter 推文推送 | 定时：每 `X_DYNAMICS_INTERVAL_SECONDS` 秒，默认 `60` | 否 | 是，主动推送 | 否 | 否 | 否 | 读取 `dynamics_list.json` 的 `x` 段；需 `twscrape` 与 X Cookie；默认过滤回复和转推；连续失败达阈值时私信 `ADMIN_ID` | 定时任务 |
 | `delta_force` | 三角洲密码房 | `密码房密码`；别名：`密码房`、`三角洲密码房`、`三角洲密码`、`三角洲钥匙房`、`鼠鼠行动密码房`、`密码`、`今日密码` | 否 | 是 | 否 | 否 | 否 | 仅群聊；渲染密码房图片 | `10 / 是` |
 | `ai_chat` | 文本 AI | `chat <文本>`；别名：`ai` | 是 | 否 | 是，`ADMIN_ID` | 否 | 否 | 参数非空；非管理员会被静默忽略 | `10 / 是` |
 | `ai_chat` | 图片 AI | `image <提示词>`；别名：`images` | 是 | 否 | 是，`ADMIN_ID` | 否 | 否 | 参数非空；从当前消息中取第一张图片作为输入 | `10 / 是` |

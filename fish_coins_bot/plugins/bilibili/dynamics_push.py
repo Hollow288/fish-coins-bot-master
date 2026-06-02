@@ -14,6 +14,17 @@ from fish_coins_bot.database.bilibili.dynamics.models import DynamicsHistory
 from fish_coins_bot.utils.image_utils import screenshot_first_dyn_by_keyword, screenshot_opus_by_id
 from fish_coins_bot.utils.model_utils import find_key_word_by_type
 from fish_coins_bot.utils.dynamics_config import load_platform_targets
+from fish_coins_bot.utils.push_alert import (
+    AUTH,
+    CONFIG,
+    NETWORK,
+    SCREENSHOT_EMPTY,
+    UNKNOWN,
+    WAF,
+    PushFailure,
+    report_failure,
+    report_success,
+)
 
 require("nonebot_plugin_apscheduler")
 
@@ -99,9 +110,16 @@ async def dynamics_push_v2():
 
     try:
         items = await _fetch_following_feed()
+    except PushFailure as e:
+        logger.error(f"[动态推送v2] feed/all 拉取失败 [{e.category}]: {e.detail}")
+        await report_failure("bili_feed", e.category, e.detail)
+        return
     except Exception as e:
         logger.error(f"[动态推送v2] feed/all 拉取异常: {e}")
+        await report_failure("bili_feed", UNKNOWN, str(e))
         return
+
+    await report_success("bili_feed")
 
     if not items:
         return
@@ -145,10 +163,19 @@ async def _handle_one_dynamic(bot, uid: str, item: dict, group_list: list) -> No
         await DynamicsHistory.create(platform="bilibili", uid=uid, id_str=id_str)
         return
 
-    image = await screenshot_opus_by_id(id_str)
+    try:
+        image = await screenshot_opus_by_id(id_str)
+    except PushFailure as e:
+        logger.error(f"[动态推送v2] opus 截图失败 [{e.category}] uid={uid} id={id_str}: {e.detail}")
+        await report_failure("bili_shot", e.category, e.detail)
+        return
+
     if image is None:
         logger.warning(f"[动态推送v2] opus 截图失败, 跳过 uid={uid} id={id_str}")
+        await report_failure("bili_shot", SCREENSHOT_EMPTY, f"uid={uid} id={id_str}")
         return
+
+    await report_success("bili_shot")
 
     buffer = BytesIO()
     image.save(buffer, format="PNG")
@@ -171,7 +198,7 @@ async def _fetch_following_feed() -> list:
 
     if not sessdata:
         logger.warning("[动态推送v2] 未配置 BILI_SESSDATA, 跳过本次拉取")
-        return []
+        raise PushFailure(CONFIG, "未配置 BILI_SESSDATA")
 
     cookies = {
         "SESSDATA": sessdata,
@@ -190,15 +217,22 @@ async def _fetch_following_feed() -> list:
     async with httpx.AsyncClient(timeout=15) as client:
         resp = await client.get(url, headers=headers, cookies=cookies)
 
+    if resp.status_code == 412:
+        # 412 是 B 站对机房 IP 段的典型风控信号
+        raise PushFailure(WAF, "feed/all HTTP 412")
     if resp.status_code != 200:
-        logger.error(f"[动态推送v2] feed/all HTTP {resp.status_code}")
-        return []
+        raise PushFailure(NETWORK, f"feed/all HTTP {resp.status_code}")
 
     data = resp.json()
-    if data.get("code") != 0:
-        logger.error(
-            f"[动态推送v2] feed/all 返回 code={data.get('code')} message={data.get('message')!r}"
-        )
-        return []
+    code = data.get("code")
+    if code != 0:
+        message = data.get("message")
+        if code in (-352, -799):
+            category = WAF  # -352 风控校验失败 / -799 请求过于频繁
+        elif code in (-101, -2):
+            category = AUTH  # -101 账号未登录 / -2 cookie 失效
+        else:
+            category = UNKNOWN
+        raise PushFailure(category, f"feed/all code={code} message={message!r}")
 
     return data.get("data", {}).get("items", []) or []

@@ -17,6 +17,16 @@ from fish_coins_bot.utils.dynamics_config import (
     option_int,
 )
 from fish_coins_bot.utils.image_utils import screenshot_x_tweet_by_id
+from fish_coins_bot.utils.push_alert import (
+    AUTH,
+    CONFIG,
+    SCREENSHOT_EMPTY,
+    UNKNOWN,
+    WAF,
+    PushFailure,
+    report_failure,
+    report_success,
+)
 
 require("nonebot_plugin_apscheduler")
 
@@ -39,6 +49,17 @@ DEFAULT_MAX_AGE_SECONDS = 12 * 60
 _api: Any | None = None
 _account_synced = False
 _user_cache: dict[str, tuple[int, str]] = {}
+
+
+def _classify_x_error(e: Exception) -> str:
+    """把 twscrape 抓取异常粗分类, 供报警标注 (精确类型未知时按消息启发式判断)。"""
+    msg = str(e).lower()
+    name = type(e).__name__.lower()
+    if "noaccount" in name or "no account" in msg or "no accounts" in msg:
+        return AUTH
+    if "rate" in msg or "429" in msg or "too many" in msg:
+        return WAF
+    return UNKNOWN
 
 
 def _env_bool(name: str, default: bool) -> bool:
@@ -139,6 +160,8 @@ async def x_dynamics_push():
         api = await _get_api()
     except Exception as e:
         logger.error(f"[X 推送] 初始化 twscrape 失败: {e}")
+        category = CONFIG if "未安装 twscrape" in str(e) else _classify_x_error(e)
+        await report_failure("x_fetch", category, str(e))
         return
 
     bot = get_bot()
@@ -150,7 +173,12 @@ async def x_dynamics_push():
 
 
 async def _handle_one_target(api, bot, target: DynamicTarget) -> None:
-    user_id, username = await _resolve_target_user(api, target)
+    try:
+        user_id, username = await _resolve_target_user(api, target)
+    except Exception as e:
+        logger.error(f"[X 推送] 解析用户失败 account={target.account}: {e}")
+        await report_failure("x_fetch", _classify_x_error(e), str(e))
+        return
     if not user_id:
         return
 
@@ -171,7 +199,15 @@ async def _handle_one_target(api, bot, target: DynamicTarget) -> None:
         minimum=1,
     )
 
-    tweets = await _fetch_tweets(api, user_id, include_replies, limit)
+    try:
+        tweets = await _fetch_tweets(api, user_id, include_replies, limit)
+    except Exception as e:
+        logger.error(f"[X 推送] 拉取推文失败 account={target.account}: {e}")
+        await report_failure("x_fetch", _classify_x_error(e), str(e))
+        return
+
+    await report_success("x_fetch")
+
     if not tweets:
         return
 
@@ -237,22 +273,35 @@ async def _handle_one_tweet(
         await DynamicsHistory.create(platform=PLATFORM, uid=user_id, id_str=tweet_id)
         return
 
-    image = await screenshot_x_tweet_by_id(username, tweet_id)
+    shot_failure: tuple[str, str] | None = None
+    try:
+        image = await screenshot_x_tweet_by_id(username, tweet_id)
+    except PushFailure as e:
+        logger.error(f"[X 推送] 截图失败 [{e.category}] tweet_id={tweet_id}: {e.detail}")
+        image = None
+        shot_failure = (e.category, e.detail)
+
     message = None
     if image is not None:
+        await report_success("x_shot")
         buffer = BytesIO()
         image.save(buffer, format="PNG")
         buffer.seek(0)
         message = MessageSegment.image(buffer)
-    elif option_bool(
-        target.options,
-        "send_text_fallback",
-        _env_bool("X_SEND_TEXT_FALLBACK", True),
-    ):
-        message = _format_tweet_message(username, tweet)
     else:
-        logger.warning(f"[X 推送] 截图失败，跳过 tweet_id={tweet_id}")
-        return
+        if shot_failure is None:
+            shot_failure = (SCREENSHOT_EMPTY, f"tweet_id={tweet_id}")
+        # 截图失败照常上报 x_shot 健康度, 但仍按 send_text_fallback 尝试用文字把消息发出去
+        await report_failure("x_shot", shot_failure[0], shot_failure[1])
+        if option_bool(
+            target.options,
+            "send_text_fallback",
+            _env_bool("X_SEND_TEXT_FALLBACK", True),
+        ):
+            message = _format_tweet_message(username, tweet)
+        else:
+            logger.warning(f"[X 推送] 截图失败，跳过 tweet_id={tweet_id}")
+            return
 
     for group_id in target.group_ids:
         try:
