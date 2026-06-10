@@ -18,7 +18,7 @@ bilibili/dynamics_push.py 和 x_monitor/dynamics_push.py 都是定时跑的推�
 """
 
 import os
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 from nonebot import get_bot
 from nonebot.log import logger
@@ -26,9 +26,15 @@ from nonebot.log import logger
 from fish_coins_bot.utils.admin_utils import parse_admin_ids
 
 
+# 容器系统时区是 UTC, 报警时间戳曾经差 8 小时; 不全局设 TZ (避免影响其他功能),
+# 只在报警展示层显式用东八区。北京时间无夏令时, 固定偏移即可。
+BEIJING_TZ = timezone(timedelta(hours=8))
+
+
 # 故障类别 (value 即发给管理员时的中文展示名)
 WAF = "风控"
 AUTH = "登录态失效"
+RATE_LIMIT_COOLDOWN = "限流冷却中 (到期自动恢复)"
 CONFIG = "配置缺失"
 NETWORK = "网络/HTTP 异常"
 SCREENSHOT_EMPTY = "截图失败 (疑似风控或页面改版)"
@@ -88,7 +94,7 @@ async def report_failure(scope: str, category: str, detail: str = "") -> None:
 
         if st["fails"] >= _threshold() and not st["alerted"]:
             st["alerted"] = True
-            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            now = datetime.now(BEIJING_TZ).strftime("%Y-%m-%d %H:%M:%S")
             reason = category if not detail else f"{category} ({detail})"
             text = (
                 "⚠️ 动态推送异常\n"

@@ -1,4 +1,5 @@
 import os
+import re
 import time
 from datetime import datetime, timezone
 from io import BytesIO
@@ -19,7 +20,9 @@ from fish_coins_bot.utils.dynamics_config import (
 from fish_coins_bot.utils.image_utils import screenshot_x_tweet_by_id
 from fish_coins_bot.utils.push_alert import (
     AUTH,
+    BEIJING_TZ,
     CONFIG,
+    RATE_LIMIT_COOLDOWN,
     SCREENSHOT_EMPTY,
     UNKNOWN,
     WAF,
@@ -51,15 +54,63 @@ _account_synced = False
 _user_cache: dict[str, tuple[int, str]] = {}
 
 
-def _classify_x_error(e: Exception) -> str:
-    """把 twscrape 抓取异常粗分类, 供报警标注 (精确类型未知时按消息启发式判断)。"""
+async def _classify_x_failure(e: Exception) -> tuple[str, str]:
+    """把 twscrape 抓取异常分类为 (类别, 细节), 供报警标注。
+
+    NoAccountError 不能直接当登录失效: 单账号被限流锁 15 分钟时池子同样为空,
+    需进一步查账号池区分「冷却中(自愈)」和「真被标记失效(需换 Cookie)」。
+    """
     msg = str(e).lower()
     name = type(e).__name__.lower()
     if "noaccount" in name or "no account" in msg or "no accounts" in msg:
-        return AUTH
+        return await _classify_no_account(e)
     if "rate" in msg or "429" in msg or "too many" in msg:
-        return WAF
-    return UNKNOWN
+        return WAF, str(e)
+    return UNKNOWN, str(e)
+
+
+async def _classify_no_account(e: Exception) -> tuple[str, str]:
+    """NoAccountError 细分: 限流冷却 / 登录失效 / 账号池为空。"""
+    if _api is None:
+        return AUTH, str(e)
+
+    try:
+        accounts = await _api.pool.get_all()
+    except Exception as pool_err:  # 查询失败就退回原始消息, 不让报警链路再抛
+        logger.warning(f"[X 推送] 查询账号池失败: {pool_err}")
+        return AUTH, str(e)
+
+    if not accounts:
+        return CONFIG, "twscrape 账号池为空, 请检查 X_AUTH_TOKEN / X_CT0"
+
+    active = [a for a in accounts if getattr(a, "active", False)]
+    if not active:
+        # 全部被 twscrape 标记 inactive → 真·登录失效/封号, 不会自愈
+        err = next((a.error_msg for a in accounts if getattr(a, "error_msg", None)), "")
+        detail = "账号已被标记失效, 需重新获取 Cookie 并重启 bot"
+        if err:
+            detail += f"; twscrape: {err}"
+        return AUTH, detail
+
+    # 有 active 账号却拿不到 → 被 queue 级限流锁住, 到期自动恢复
+    match = re.search(r"queue\s+(\S+)", str(e))
+    queue = match.group(1) if match else None
+    unlock_times = []
+    for account in active:
+        locks = getattr(account, "locks", None) or {}
+        lock_until = locks.get(queue) if queue else None
+        if lock_until is None and locks:
+            lock_until = max(locks.values())
+        if isinstance(lock_until, datetime):
+            unlock_times.append(lock_until)
+
+    if unlock_times:
+        unlock_at = min(unlock_times).astimezone(BEIJING_TZ)
+        minutes = max(0, int((min(unlock_times) - datetime.now(timezone.utc)).total_seconds() // 60))
+        detail = f"预计 {unlock_at.strftime('%H:%M:%S')} (约 {minutes} 分钟后) 解锁, 无需处理"
+    else:
+        detail = "账号被临时锁定, 通常 15 分钟内自动解锁, 无需处理"
+    return RATE_LIMIT_COOLDOWN, detail
 
 
 def _env_bool(name: str, default: bool) -> bool:
@@ -160,8 +211,11 @@ async def x_dynamics_push():
         api = await _get_api()
     except Exception as e:
         logger.error(f"[X 推送] 初始化 twscrape 失败: {e}")
-        category = CONFIG if "未安装 twscrape" in str(e) else _classify_x_error(e)
-        await report_failure("x_fetch", category, str(e))
+        if "未安装 twscrape" in str(e):
+            category, detail = CONFIG, str(e)
+        else:
+            category, detail = await _classify_x_failure(e)
+        await report_failure("x_fetch", category, detail)
         return
 
     bot = get_bot()
@@ -177,7 +231,8 @@ async def _handle_one_target(api, bot, target: DynamicTarget) -> None:
         user_id, username = await _resolve_target_user(api, target)
     except Exception as e:
         logger.error(f"[X 推送] 解析用户失败 account={target.account}: {e}")
-        await report_failure("x_fetch", _classify_x_error(e), str(e))
+        category, detail = await _classify_x_failure(e)
+        await report_failure("x_fetch", category, detail)
         return
     if not user_id:
         return
@@ -203,7 +258,8 @@ async def _handle_one_target(api, bot, target: DynamicTarget) -> None:
         tweets = await _fetch_tweets(api, user_id, include_replies, limit)
     except Exception as e:
         logger.error(f"[X 推送] 拉取推文失败 account={target.account}: {e}")
-        await report_failure("x_fetch", _classify_x_error(e), str(e))
+        category, detail = await _classify_x_failure(e)
+        await report_failure("x_fetch", category, detail)
         return
 
     await report_success("x_fetch")
