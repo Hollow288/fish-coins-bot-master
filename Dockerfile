@@ -45,6 +45,7 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     fonts-noto \
     fonts-noto-cjk \
+    fonts-noto-color-emoji \
     fonts-liberation \
     && fc-cache -fv && \
     rm -rf /var/lib/apt/lists/*

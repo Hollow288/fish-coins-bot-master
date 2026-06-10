@@ -102,6 +102,15 @@
             border-radius: 12px;
             padding: 10px 8px;
         }
+        .chart-title {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            font-size: 13px;
+            color: #7b8190;
+            padding: 2px 6px 8px;
+        }
+        .chart-title .chart-range { font-size: 12px; color: #9aa0ab; }
         .chart { width: 100%; height: auto; display: block; }
         .chart text { font-family: 'AlibabaPuHuiTi', sans-serif; font-size: 13px; }
         .chart-empty {
@@ -230,6 +239,10 @@
         </div>
 
         <div class="chart-wrap">
+            <div class="chart-title">
+                <span>近 {{ trend_days }} 天净值走势</span>
+                {% if fund.chart_range %}<span class="chart-range">{{ fund.chart_range }}</span>{% endif %}
+            </div>
             {% if fund.chart_svg %}
                 {{ fund.chart_svg | safe }}
             {% else %}

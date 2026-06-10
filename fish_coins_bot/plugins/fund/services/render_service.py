@@ -176,8 +176,13 @@ def _build_fund_vm(review: dict, trend: dict | None, ai_text: str) -> dict:
     has_manager = bool(review.get("managerName"))
 
     chart_svg = None
+    chart_range = None
     if isinstance(trend, dict):
-        chart_svg = _build_chart_svg(trend.get("points") or [], code or "x")
+        points = trend.get("points") or []
+        chart_svg = _build_chart_svg(points, code or "x")
+        dates = [p.get("date") for p in points if isinstance(p, dict) and p.get("date")]
+        if dates:
+            chart_range = f"{min(dates)} ~ {max(dates)}"
 
     return {
         "code": code,
@@ -203,6 +208,7 @@ def _build_fund_vm(review: dict, trend: dict | None, ai_text: str) -> dict:
         "has_manager": has_manager,
         "ranks": _build_period_ranks(review.get("periodRanks")),
         "chart_svg": chart_svg,
+        "chart_range": chart_range,
         "ai_text": ai_text,
         "note": review.get("note"),
     }
@@ -231,10 +237,17 @@ async def render_report(items: list[dict]) -> bytes | None:
     as_of_dates = [vm["as_of"] for vm in vms if vm["as_of"] and vm["as_of"] != "—"]
     data_as_of = max(as_of_dates) if as_of_dates else now.strftime("%Y-%m-%d")
 
+    # 直接读环境变量而非 import 插件 config，保持本模块可被脱离包单独加载（见 _fund_render_test.py）
+    try:
+        trend_days = max(int(os.getenv("FUND_TREND_DAYS") or 90), 2)
+    except ValueError:
+        trend_days = 90
+
     font_host = os.getenv("FONT_HOST") or ""
     data = {
         "funds": vms,
         "count": len(vms),
+        "trend_days": trend_days,
         "data_as_of": data_as_of,
         "generated_at": now.strftime("%Y-%m-%d %H:%M"),
         "AlibabaPuHuiTi": font_host + "AlibabaPuHuiTi-3-45-Light.otf",
