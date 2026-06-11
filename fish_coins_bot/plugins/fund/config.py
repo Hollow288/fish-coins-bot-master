@@ -30,6 +30,7 @@ def _parse_group_ids(value: str | None) -> frozenset[str]:
 class FundPluginConfig:
     push_enabled: bool
     api_base_url: str
+    api_token: str
     group_ids: frozenset[str]
     cron_hour: int
     cron_minute: int
@@ -46,6 +47,7 @@ def get_plugin_config() -> FundPluginConfig:
         api_base_url=(
             os.getenv("FUND_API_BASE_URL") or "http://127.0.0.1:5777/api/v1/fund"
         ).rstrip("/"),
+        api_token=(os.getenv("FUND_API_TOKEN") or "").strip(),
         group_ids=_parse_group_ids(os.getenv("FUND_PUSH_GROUP_IDS")),
         cron_hour=_parse_int(os.getenv("FUND_PUSH_CRON_HOUR"), default=19, minimum=0),
         cron_minute=_parse_int(os.getenv("FUND_PUSH_CRON_MINUTE"), default=0, minimum=0),

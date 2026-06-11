@@ -3,12 +3,18 @@ from nonebot.plugin import PluginMetadata
 
 require("nonebot_plugin_apscheduler")
 
+from . import commands as commands  # noqa: F401
 from . import scheduler as scheduler  # noqa: F401
 
 __plugin_meta__ = PluginMetadata(
     name="fund",
-    description="每天定时拉取监控基金的涨跌/风险数据，调用 AI 点评，渲染成长图推送到群。",
-    usage="无指令交互，自动运行；通过 .env 中 FUND_* 配置控制推送时间、目标群、基金服务地址等。",
+    description="每天定时推送监控基金的速览长图；支持 添加基金/删除基金/基金走势 指令查看个人基金详情。",
+    usage=(
+        "添加基金 270042：绑定基金并开始监控；"
+        "删除基金 270042：解除绑定；"
+        "基金走势：生成个人绑定基金的详细点评长图（走势曲线 + AI 点评）。"
+        "定时速览推送通过 .env 中 FUND_* 配置控制。"
+    ),
     type="application",
     homepage="https://github.com/nonebot/nonebot2",
     supported_adapters={"~onebot.v11"},

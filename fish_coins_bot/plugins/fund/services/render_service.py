@@ -13,6 +13,15 @@ from playwright.async_api import async_playwright
 
 # 模板与项目其它模板统一放在根目录 templates/（loader 相对运行目录，同 image_utils.py）
 _TEMPLATE_NAME = "template-fund-report.html"
+_SUMMARY_TEMPLATE_NAME = "template-fund-summary.html"
+
+# 简洁速览图的阶段列：periodRanks 的 periodCode → 表头
+_SUMMARY_PERIODS: tuple[tuple[str, str], ...] = (
+    ("Z", "近1周"),
+    ("Y", "近1月"),
+    ("3Y", "近3月"),
+    ("1N", "近1年"),
+)
 
 # 红涨绿跌
 _COLOR_UP = "#e64539"
@@ -225,37 +234,65 @@ def build_view_models(items: list[dict]) -> list[dict]:
     return vms
 
 
-async def render_report(items: list[dict]) -> bytes | None:
-    """渲染长图，返回 PNG bytes；无可用数据或渲染失败返回 None。"""
-    vms = build_view_models(items)
-    if not vms:
-        logger.error("[fund] 无可渲染的基金数据，跳过出图。")
-        return None
+def _build_summary_vm(review: dict) -> dict:
+    """把单只基金的 review 整理成速览表一行：名称/最新涨跌 + periodRanks 各阶段涨跌。"""
+    code = str(review.get("fundCode") or "")
 
+    rank_returns: dict = {}
+    period_ranks = review.get("periodRanks")
+    if isinstance(period_ranks, list):
+        for item in period_ranks:
+            if isinstance(item, dict):
+                rank_returns[item.get("periodCode")] = item.get("fundReturn")
+
+    periods = [
+        {
+            "label": label,
+            "value": _fmt_pct(rank_returns.get(period_code), signed=True),
+            "cls": _change_class(rank_returns.get(period_code)),
+        }
+        for period_code, label in _SUMMARY_PERIODS
+    ]
+
+    as_of = review.get("asOf") or ""
+    return {
+        "code": code,
+        "name": review.get("fundName") or code or "—",
+        "type": review.get("fundType") or "基金",
+        "as_of": as_of or "—",
+        "as_of_short": as_of[5:] if len(as_of) == 10 else (as_of or "—"),  # yyyy-MM-dd → MM-dd
+        "growth": _fmt_pct(review.get("latestGrowthRate"), signed=True),
+        "growth_class": _change_class(review.get("latestGrowthRate")),
+        "periods": periods,
+    }
+
+
+def build_summary_vms(reviews: list[dict]) -> list[dict]:
+    return [_build_summary_vm(review) for review in reviews if isinstance(review, dict)]
+
+
+def _base_template_data() -> tuple[dict, datetime]:
+    """字体 URL 与生成时间等模板公共数据。直接读环境变量而非 import 插件 config，
+    保持本模块可被脱离包单独加载（见 _fund_render_test.py）。"""
     tz = pytz.timezone("Asia/Shanghai")
     now = datetime.now(tz)
-    as_of_dates = [vm["as_of"] for vm in vms if vm["as_of"] and vm["as_of"] != "—"]
-    data_as_of = max(as_of_dates) if as_of_dates else now.strftime("%Y-%m-%d")
-
-    # 直接读环境变量而非 import 插件 config，保持本模块可被脱离包单独加载（见 _fund_render_test.py）
-    try:
-        trend_days = max(int(os.getenv("FUND_TREND_DAYS") or 90), 2)
-    except ValueError:
-        trend_days = 90
-
     font_host = os.getenv("FONT_HOST") or ""
-    data = {
-        "funds": vms,
-        "count": len(vms),
-        "trend_days": trend_days,
-        "data_as_of": data_as_of,
+    return {
         "generated_at": now.strftime("%Y-%m-%d %H:%M"),
         "AlibabaPuHuiTi": font_host + "AlibabaPuHuiTi-3-45-Light.otf",
         "ZCOOLKuaiLe": font_host + "ZCOOLKuaiLe-Regular.ttf",
-    }
+    }, now
 
+
+def _data_as_of(vms: list[dict], now: datetime) -> str:
+    as_of_dates = [vm["as_of"] for vm in vms if vm["as_of"] and vm["as_of"] != "—"]
+    return max(as_of_dates) if as_of_dates else now.strftime("%Y-%m-%d")
+
+
+async def _screenshot_template(template_name: str, data: dict) -> bytes | None:
+    """Jinja2 渲染模板 + Playwright 截取 .report 元素，返回 PNG bytes。"""
     env = Environment(loader=FileSystemLoader("templates"), autoescape=True)
-    template = env.get_template(_TEMPLATE_NAME)
+    template = env.get_template(template_name)
     html_content = template.render(**data)
 
     async with async_playwright() as p:
@@ -272,3 +309,47 @@ async def render_report(items: list[dict]) -> bytes | None:
             return image_bytes
         finally:
             await browser.close()
+
+
+async def render_report(items: list[dict]) -> bytes | None:
+    """渲染详细点评长图，返回 PNG bytes；无可用数据或渲染失败返回 None。"""
+    vms = build_view_models(items)
+    if not vms:
+        logger.error("[fund] 无可渲染的基金数据，跳过出图。")
+        return None
+
+    data, now = _base_template_data()
+
+    try:
+        trend_days = max(int(os.getenv("FUND_TREND_DAYS") or 90), 2)
+    except ValueError:
+        trend_days = 90
+
+    data.update(
+        {
+            "funds": vms,
+            "count": len(vms),
+            "trend_days": trend_days,
+            "data_as_of": _data_as_of(vms, now),
+        }
+    )
+    return await _screenshot_template(_TEMPLATE_NAME, data)
+
+
+async def render_summary(reviews: list[dict]) -> bytes | None:
+    """渲染每日速览简洁图（一行一基金的涨跌表），返回 PNG bytes；失败返回 None。"""
+    vms = build_summary_vms(reviews)
+    if not vms:
+        logger.error("[fund] 无可渲染的基金速览数据，跳过出图。")
+        return None
+
+    data, now = _base_template_data()
+    data.update(
+        {
+            "funds": vms,
+            "count": len(vms),
+            "period_labels": [label for _, label in _SUMMARY_PERIODS],
+            "data_as_of": _data_as_of(vms, now),
+        }
+    )
+    return await _screenshot_template(_SUMMARY_TEMPLATE_NAME, data)
