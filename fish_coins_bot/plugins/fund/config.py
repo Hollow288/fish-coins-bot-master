@@ -49,8 +49,8 @@ def get_plugin_config() -> FundPluginConfig:
         ).rstrip("/"),
         api_token=(os.getenv("FUND_API_TOKEN") or "").strip(),
         group_ids=_parse_group_ids(os.getenv("FUND_PUSH_GROUP_IDS")),
-        cron_hour=_parse_int(os.getenv("FUND_PUSH_CRON_HOUR"), default=19, minimum=0),
-        cron_minute=_parse_int(os.getenv("FUND_PUSH_CRON_MINUTE"), default=0, minimum=0),
+        cron_hour=_parse_int(os.getenv("FUND_PUSH_CRON_HOUR"), default=8, minimum=0),
+        cron_minute=_parse_int(os.getenv("FUND_PUSH_CRON_MINUTE"), default=30, minimum=0),
         trend_days=_parse_int(os.getenv("FUND_TREND_DAYS"), default=90, minimum=2),
         request_timeout_seconds=_parse_int(
             os.getenv("FUND_REQUEST_TIMEOUT_SECONDS"), default=20, minimum=1

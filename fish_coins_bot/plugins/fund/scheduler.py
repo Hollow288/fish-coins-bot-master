@@ -9,14 +9,14 @@ def _cron_hour() -> int:
     try:
         return get_plugin_config().cron_hour
     except Exception:
-        return 19
+        return 8
 
 
 def _cron_minute() -> int:
     try:
         return get_plugin_config().cron_minute
     except Exception:
-        return 0
+        return 30
 
 
 @scheduler.scheduled_job(
