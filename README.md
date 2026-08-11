@@ -327,6 +327,48 @@ agent <自然语言查询>
 - `sticker_asset`：全局唯一表情包资产，按 `content_sha256` 去重，含 AI 识别结果。
 - `sticker_usage`：用户与表情包的使用记录，`(sticker_id, user_id)` 唯一。
 
+### telegram_checkin
+
+Telegram 个人号自动签到插件，入口为 `fish_coins_bot/plugins/telegram_checkin/__init__.py`。
+
+主要功能：
+
+- 每天上海时间 08:00 起随机延迟最多 10 分钟，查询所有启用绑定并逐条发送各自配置的签到指令。
+- 群聊中 @ 机器人发送 `TG签到`，或在私聊中发送 `TG签到`，手动执行发送人 QQ 名下的全部启用任务。
+- 签到指令完全来自数据库的 `checkin_command`，不会写死为 `/checkin`。
+- Telegram 接受消息后立即通过 `dynamics_history` 记录当天已签到；当天后续手动或自动触发不会重复发送。
+- 等待目标机器人的下一条回复并原样展示，不分析回复内容；等待超时仍视为指令已成功发送。
+- 同一 QQ 绑定多条任务时，账号备注、目标机器人、指令、状态和机器人回复会合并为一条编号汇总消息。
+
+首次使用：
+
+1. 在 `https://my.telegram.org` 的 `API development tools` 创建应用，取得 `api_id` 和 `api_hash`。
+2. 安装项目依赖后运行 `poetry run python generate_tg_session.py`，按提示输入手机号、Telegram 验证码和可选的两步验证密码，取得 `StringSession`。
+3. 执行 `fish_coins_bot/plugins/telegram_checkin/sql/telegram_checkin.sql` 创建绑定表。
+4. 将 QQ、TG 凭证、目标机器人和签到指令手动录入 `telegram_checkin_binding`。
+
+示例记录：
+
+```sql
+INSERT INTO telegram_checkin_binding (
+    qq_user_id, tg_api_id, tg_api_hash, tg_session,
+    tg_account_name, target_bot, checkin_command, enabled
+) VALUES (
+    '123456789', 12345678, '替换为api_hash', '替换为StringSession',
+    '我的TG', '@example_bot', '每日签到', 1
+);
+```
+
+相关配置：
+
+- `TG_CHECKIN_SCHEDULER_ENABLED`：是否启用每日自动签到。
+- `TG_CHECKIN_CRON_HOUR`、`TG_CHECKIN_CRON_MINUTE`、`TG_CHECKIN_CRON_JITTER_SECONDS`：执行时间和随机延迟。
+- `TG_CHECKIN_REPLY_TIMEOUT_SECONDS`：等待机器人回复的时间。
+- `TG_CHECKIN_TASK_INTERVAL_SECONDS`：同一 QQ 多任务之间的间隔。
+- `TG_CHECKIN_SCHEDULED_NOTIFY`：是否将自动签到汇总私聊发送给对应 QQ。
+
+`tg_session` 可以直接登录对应 Telegram 账号；验证码和两步验证密码不会写入数据库。Session 失效后重新运行生成工具并更新字段即可。
+
 ## 插件触发条件总览
 
 说明：
@@ -376,3 +418,5 @@ agent <自然语言查询>
 | `persona_mirror` | 自动画像总结 | 定时：每 `PERSONA_SUMMARY_INTERVAL_MINUTES` 分钟，默认 `30` | 否 | 否 | 否 | 否 | 否 | `PERSONA_SCHEDULER_ENABLED=true`；目标启用；新增消息达到阈值 | 定时任务 |
 | `sticker_collector` | 表情包采集 | 任意群聊 / 私聊消息 | 是 | 是 | 否 | 否 | 否 | `STICKER_COLLECTOR_ENABLED=true`；发送者不是机器人；消息含带 `url` 的 `image`、`mface` 或 `marketface` 段 | `1 / 否` |
 | `sticker_collector` | 表情包 AI 识别 | 定时：每 `STICKER_RECOGNIZE_INTERVAL_MINUTES` 分钟，默认 `10` | 否 | 否 | 否 | 否 | 否 | `STICKER_RECOGNIZE_ENABLED=true`；处理 `recognize_status='pending'` 的表情包 | 定时任务 |
+| `telegram_checkin` | 手动 TG 签到 | `TG签到` | 是 | 是 | 否，仅执行发送人绑定 | 是（群聊） | 否 | 查询发送人 QQ 的全部启用绑定；当天已经发送过的任务跳过 | `10 / 是` |
+| `telegram_checkin` | 自动 TG 签到 | 定时：每天约 `08:00` | 是，私聊汇总 | 否 | 否 | 否 | 否 | `TG_CHECKIN_SCHEDULER_ENABLED=true`；实际时间可配置并带随机延迟 | 定时任务 |

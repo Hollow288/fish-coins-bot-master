@@ -29,6 +29,7 @@ TORTOISE_ORM = {
                 "fish_coins_bot.plugins.persona_mirror.models",
                 "fish_coins_bot.plugins.sticker_collector.models",
                 "fish_coins_bot.plugins.fund.models",
+                "fish_coins_bot.plugins.telegram_checkin.models",
             ],
             "default_connection": "default",
         },

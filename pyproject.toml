@@ -24,6 +24,8 @@ yt-dlp = "^2026.1.31"
 jieba = "^0.42.1"
 cryptography = "^47.0.0"
 twscrape = "^0.19.1"
+telethon = "^1.44.0"
+python-socks = {extras = ["asyncio"], version = "^2.8.2"}
 
 
 [build-system]
