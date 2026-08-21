@@ -14,6 +14,8 @@ CONFIG_PATH = Path(
     )
 )
 
+_KNOWN_SECTIONS = {"bilibili", "x", "fund", "hotta"}
+
 
 @dataclass(frozen=True)
 class DynamicTarget:
@@ -40,10 +42,38 @@ def load_dynamics_config() -> dict[str, Any]:
         return {}
 
     # 兼容旧格式: {"B站UID": ["群号1", "群号2"]}
-    if "bilibili" not in data and "x" not in data:
+    if not _KNOWN_SECTIONS.intersection(data):
         return {"bilibili": data}
 
     return data
+
+
+def load_group_ids(section: str) -> list[str]:
+    """读取 fund / hotta 这类顶层群列表。
+
+    配置示例::
+
+        {
+            "fund": ["123456", "789012"],
+            "hotta": ["123456"]
+        }
+
+    群号会统一转成字符串、去除空值和重复项，并保留原始顺序。
+    """
+    raw = load_dynamics_config().get(section, [])
+    if not isinstance(raw, list):
+        logger.error(f"[动态配置] {section} 配置必须是群号 list")
+        return []
+
+    group_ids: list[str] = []
+    seen: set[str] = set()
+    for value in raw:
+        group_id = str(value).strip()
+        if not group_id or group_id in seen:
+            continue
+        seen.add(group_id)
+        group_ids.append(group_id)
+    return group_ids
 
 
 def load_platform_targets(platform: str) -> dict[str, DynamicTarget]:

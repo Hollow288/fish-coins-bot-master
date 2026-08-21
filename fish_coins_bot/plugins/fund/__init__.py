@@ -13,7 +13,8 @@ __plugin_meta__ = PluginMetadata(
         "添加基金 270042：绑定基金并开始监控；"
         "删除基金 270042：解除绑定；"
         "基金走势：生成个人绑定基金的详细点评长图（走势曲线 + AI 点评）。"
-        "定时速览推送通过 .env 中 FUND_* 配置控制。"
+        "定时速览的目标群由 dynamics_list.json 的 fund 数组配置，"
+        "其他参数通过 .env 中 FUND_* 配置控制。"
     ),
     type="application",
     homepage="https://github.com/nonebot/nonebot2",

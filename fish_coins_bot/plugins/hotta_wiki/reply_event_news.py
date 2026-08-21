@@ -8,9 +8,11 @@ from nonebot.params import CommandArg
 from pathlib import Path
 from nonebot.adapters.onebot.v11 import MessageSegment
 from nonebot import get_bot,require
+from nonebot.log import logger
 from datetime import datetime
 
 from fish_coins_bot.database.hotta.event_news import EventNews
+from fish_coins_bot.utils.dynamics_config import load_group_ids
 from fish_coins_bot.utils.image_utils import make_event_news_end_image
 from fish_coins_bot.utils.model_utils import days_diff_from_now
 
@@ -48,6 +50,11 @@ async def event_news_handle_function(args: Message = CommandArg()):
 @scheduler.scheduled_job("cron", hour=12, minute=30, second=0, id="event_news_end_scheduled")
 async def event_news_end_scheduled():
 
+    group_ids = load_group_ids("hotta")
+    if not group_ids:
+        logger.warning("[hotta_wiki] dynamics_list.json 的 hotta 群列表为空，跳过活动结束提醒。")
+        return
+
     tz = pytz.timezone("Asia/Shanghai")
     current_time = datetime.now(tz)
 
@@ -70,7 +77,6 @@ async def event_news_end_scheduled():
     await make_event_news_end_image()
 
     bot = get_bot()
-    group_list = await bot.get_group_list()
 
     image_path = Path("/app/screenshots/common") / "event-news-end.png"
     image_message = MessageSegment.image(f"file://{image_path}")
@@ -78,5 +84,8 @@ async def event_news_end_scheduled():
     # 检查文件是否存在
     if image_path.exists() and is_need_send:
         # 发送图片
-        for group in group_list:
-            await bot.send_group_msg(group_id=group['group_id'], message=image_message)
+        for group_id in group_ids:
+            try:
+                await bot.send_group_msg(group_id=int(group_id), message=image_message)
+            except Exception as exc:
+                logger.error(f"[hotta_wiki] 活动结束提醒发送失败 group={group_id}: {exc}")

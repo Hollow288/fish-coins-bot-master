@@ -20,18 +20,11 @@ def _parse_int(value: str | None, default: int, minimum: int) -> int:
         return default
 
 
-def _parse_group_ids(value: str | None) -> frozenset[str]:
-    if not value:
-        return frozenset()
-    return frozenset(item.strip() for item in value.split(",") if item.strip())
-
-
 @dataclass(frozen=True)
 class FundPluginConfig:
     push_enabled: bool
     api_base_url: str
     api_token: str
-    group_ids: frozenset[str]
     cron_hour: int
     cron_minute: int
     trend_days: int
@@ -48,7 +41,6 @@ def get_plugin_config() -> FundPluginConfig:
             os.getenv("FUND_API_BASE_URL") or "http://127.0.0.1:5777/api/v1/fund"
         ).rstrip("/"),
         api_token=(os.getenv("FUND_API_TOKEN") or "").strip(),
-        group_ids=_parse_group_ids(os.getenv("FUND_PUSH_GROUP_IDS")),
         cron_hour=_parse_int(os.getenv("FUND_PUSH_CRON_HOUR"), default=8, minimum=0),
         cron_minute=_parse_int(os.getenv("FUND_PUSH_CRON_MINUTE"), default=30, minimum=0),
         trend_days=_parse_int(os.getenv("FUND_TREND_DAYS"), default=90, minimum=2),

@@ -9,6 +9,7 @@ from nonebot.adapters.onebot.v11 import MessageSegment
 from nonebot.log import logger
 
 from fish_coins_bot.database.bilibili.dynamics.models import DynamicsHistory
+from fish_coins_bot.utils.dynamics_config import load_group_ids
 
 from ..config import get_plugin_config
 from .ai_service import review_text
@@ -146,14 +147,18 @@ async def run_daily_push() -> None:
             await _notify_admins(bot, "渲染基金速览图失败，请检查 playwright / 模板。")
             return
 
-        if not config.group_ids:
-            logger.warning("[fund] 未配置 FUND_PUSH_GROUP_IDS，已生成图片但无群可发。")
-            await _notify_admins(bot, "已生成基金速览图，但未配置推送群（FUND_PUSH_GROUP_IDS）。")
+        group_ids = load_group_ids("fund")
+        if not group_ids:
+            logger.warning("[fund] dynamics_list.json 的 fund 群列表为空，已生成图片但无群可发。")
+            await _notify_admins(
+                bot,
+                "已生成基金速览图，但 dynamics_list.json 的 fund 群列表为空。",
+            )
             return
 
         message = MessageSegment.image(image_bytes)
         sent = 0
-        for group_id in config.group_ids:
+        for group_id in group_ids:
             try:
                 await bot.send_group_msg(group_id=int(group_id), message=message)
                 sent += 1

@@ -46,8 +46,8 @@
 - 戳一戳机器人：按上海时间回复问候和帮助提示。
 - @ 机器人或回复机器人：兜底调用文本 AI 生成回复；游戏查询类内容会引导用户发送帮助菜单；闲聊回复会尽量搭配合适表情包，并记录机器人自己的最近回复上下文。
 - 每天 00:05、05:05、12:05 生成活动资讯图。
-- 每天 12:30 检查 7 天内即将结束的活动，生成并向所有群推送提醒图。
-- 每月最后一天 18:30 向所有群推送特殊凭证提醒图。
+- 每天 12:30 检查 7 天内即将结束的活动，生成并向 `dynamics_list.json` 的 `hotta` 群列表推送提醒图。
+- 每月最后一天 18:30 向 `dynamics_list.json` 的 `hotta` 群列表推送特殊凭证提醒图。
 
 相关文件和表：
 
@@ -71,7 +71,7 @@ B 站直播和动态推送插件，入口为 `fish_coins_bot/plugins/bilibili/__
 
 相关文件和表：
 
-- `fish_coins_bot/plugins/bilibili/dynamics_list.json`：跨平台动态推送配置，顶层按 `bilibili` / `x` 分组。
+- `fish_coins_bot/plugins/bilibili/dynamics_list.json`：统一推送群配置，顶层按 `bilibili` / `x` / `fund` / `hotta` 分组。
 - `bot_live_state`：直播间、推送群和直播状态。
 - `dynamics_history`：动态去重记录。
 
@@ -84,9 +84,13 @@ B 站直播和动态推送插件，入口为 `fish_coins_bot/plugins/bilibili/__
   },
   "x": {
     "Kingshot_Mobile": [""]
-  }
+  },
+  "fund": [""],
+  "hotta": [""]
 }
 ```
+
+`bilibili` 和 `x` 按被监控账号分别配置目标群；`fund` 是基金日报目标群，`hotta` 是活动结束和特殊凭证提醒共用的目标群。群列表留空时，对应推送不会发往任何群。
 
 也可以为 X 单个账号配置选项：
 
@@ -391,8 +395,8 @@ INSERT INTO telegram_checkin_binding (
 | `hotta_wiki` | 戳一戳问候 | 群聊戳一戳机器人 | 否 | 是 | 否 | 否 | 否 | `PokeNotifyEvent` 且目标是机器人自己 | 未显式设置 |
 | `hotta_wiki` | AI 兜底回复 | 群聊 @ 机器人或回复机器人 | 否 | 是 | 否 | 是 | 是 | `to_me()`；会读取群聊上下文，可搭配 `sticker_collector` 候选表情包 | `99 / 是` |
 | `hotta_wiki` | 活动图生成 | 定时：每天 `00:05`、`05:05`、`12:05` | 否 | 否 | 否 | 否 | 否 | 仅重新生成 `event-news.png`，不主动发消息 | 定时任务 |
-| `hotta_wiki` | 即将结束活动提醒 | 定时：每天 `12:30` | 否 | 是，主动推送 | 否 | 否 | 否 | 有 7 天内即将结束的活动时，向所有群推送提醒图 | 定时任务 |
-| `hotta_wiki` | 特殊凭证提醒 | 定时：每月最后一天 `18:30` | 否 | 是，主动推送 | 否 | 否 | 否 | 向所有群推送 `special_voucher.png` | 定时任务 |
+| `hotta_wiki` | 即将结束活动提醒 | 定时：每天 `12:30` | 否 | 是，主动推送 | 否 | 否 | 否 | 有 7 天内即将结束的活动时，向 `dynamics_list.json` 的 `hotta` 群列表推送提醒图 | 定时任务 |
+| `hotta_wiki` | 特殊凭证提醒 | 定时：每月最后一天 `18:30` | 否 | 是，主动推送 | 否 | 否 | 否 | 向 `dynamics_list.json` 的 `hotta` 群列表推送 `special_voucher.png` | 定时任务 |
 | `bilibili` | 直播状态推送 | 定时：每 `10` 秒 | 否 | 是，主动推送 | 否 | 否 | 否 | `bot_live_state.del_flag=0`；直播状态变化才推送 | 定时任务 |
 | `bilibili` | B 站动态推送 | 定时：每 `60` 秒 | 否 | 是，主动推送 | 否 | 否 | 否 | 读取 `dynamics_list.json` 的 `bilibili` 段；需 B 站 Cookie；只推送 12 分钟内的新动态；连续失败达阈值时私信 `ADMIN_ID` | 定时任务 |
 | `x_monitor` | X / Twitter 推文推送 | 定时：每 `X_DYNAMICS_INTERVAL_SECONDS` 秒，默认 `60` | 否 | 是，主动推送 | 否 | 否 | 否 | 读取 `dynamics_list.json` 的 `x` 段；需 `twscrape` 与 X Cookie；默认过滤回复和转推；连续失败达阈值时私信 `ADMIN_ID` | 定时任务 |
