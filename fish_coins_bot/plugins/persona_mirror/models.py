@@ -94,3 +94,19 @@ class PersonaProfileSnapshot(Model):
     class Meta:
         table = "persona_profile_snapshot"
         table_description = "人设画像快照"
+
+
+class PersonaAutoReplyLog(Model):
+    id = fields.IntField(pk=True, description="主键")
+    target_user_id = fields.CharField(max_length=32, index=True, description="被模仿目标QQ")
+    group_id = fields.CharField(max_length=32, null=True, index=True, description="触发所在群号")
+    trigger_user_id = fields.CharField(max_length=32, index=True, description="触发用户QQ")
+    trigger_user_name = fields.CharField(max_length=100, null=True, description="触发用户昵称")
+    ai_response = fields.TextField(null=True, description="AI接口完整返回", db_field_type="LONGTEXT")
+    success = fields.BooleanField(default=True, description="是否成功生成回复")
+    error_message = fields.TextField(null=True, description="失败时的错误信息")
+    created_at = fields.DatetimeField(auto_now_add=True, index=True, description="触发时间")
+
+    class Meta:
+        table = "persona_auto_reply_log"
+        table_description = "人设自动回复触发日志"

@@ -21,6 +21,7 @@ from jinja2 import Environment, FileSystemLoader
 from datetime import datetime, timedelta
 
 from fish_coins_bot.database.hotta.event_news import EventNews
+from fish_coins_bot.utils.push_alert import PushFailure, WAF
 from fish_coins_bot.utils.model_utils import the_font_bold,  make_wiki_help_img_url, days_diff_from_now, \
     format_datetime_with_timezone, make_event_news_end_url, make_food_img_url, tag_different_colors, \
     delta_force_map_abbreviation, clean_keyword, get_waf_cookie, common_fetch_door_pin_response, \
@@ -321,7 +322,7 @@ async def make_event_news():
 
             event = are_info_list[index]
 
-            title_text = f">>> {event["news_title"]}"
+            title_text = f">>> {event['news_title']}"
             start_time_text = f"开始时间: {format_datetime_with_timezone(event['news_start'])}"
             end_time_text = f"结束时间: {format_datetime_with_timezone(event['news_end'])}"
 
@@ -383,7 +384,7 @@ async def make_event_news():
 
             event = will_info_list[i]
 
-            title_text = f">>> {event["news_title"]}"
+            title_text = f">>> {event['news_title']}"
             start_time_text = f"开始时间: {format_datetime_with_timezone(event['news_start'])}"
             end_time_text = f"结束时间: {format_datetime_with_timezone(event['news_end'])}"
 
@@ -770,6 +771,228 @@ async def screenshot_first_dyn_by_keyword(
         image = Image.open(io.BytesIO(image_bytes))
         return image
 
+
+async def screenshot_opus_by_id(id_str: str) -> Optional[Image.Image]:
+    """通过 www.bilibili.com/opus/{id_str} 路径截取 B 站动态详情卡片。
+
+    旧的 screenshot_first_dyn_by_keyword 走 space.bilibili.com, 这个域名已被 B 站对
+    机房 IP 风控 (HTTP 412), 在云服务器上不可用。opus 路径走 www 子域且按动态 id 直达,
+    目前未被风控。
+    """
+    sessdata = os.getenv("BILI_SESSDATA")
+    bili_jct = os.getenv("BILI_JCT")
+    buvid3 = os.getenv("BILI_BUVID3")
+
+    cookies = [
+        {"name": name, "value": value, "domain": ".bilibili.com", "path": "/"}
+        for name, value in (
+            ("SESSDATA", sessdata),
+            ("bili_jct", bili_jct),
+            ("buvid3", buvid3),
+        )
+        if value
+    ]
+
+    url = f"https://www.bilibili.com/opus/{id_str}"
+    user_agent = (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36"
+    )
+
+    hide_css = """
+    .bili-header, #biliMainHeader, .header-mini, .mini-header,
+    .vui_navbar, .bili-header__bar, .opus-detail__nav,
+    .float-nav, .float-nav-exp, .bili-nav, .bili-mini-mask,
+    .opus-mall-icon, .opus-page-aside, .opus-side-tag,
+    .opus-share, .right-bottom-banner, .van-popover,
+    .opus-article-cover, .bili-rich-cover, .opus-rich-cover,
+    .bili-article-card__image, .opus-module-top
+    { display: none !important; }
+    body { padding-top: 0 !important; }
+    """
+
+    selectors = [
+        ".bili-opus-view",
+        ".opus-modules",
+        ".dyn-card",
+        ".bili-dyn-item__main",
+        ".dynamic-card-content",
+        "article",
+    ]
+
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(
+            headless=True,
+            args=["--no-sandbox", "--disable-dev-shm-usage"],
+        )
+        try:
+            context = await browser.new_context(
+                viewport={"width": 1440, "height": 900},
+                user_agent=user_agent,
+                locale="zh-CN",
+                timezone_id="Asia/Shanghai",
+            )
+            if cookies:
+                await context.add_cookies(cookies)
+
+            page = await context.new_page()
+            await page.goto(url, timeout=30000, wait_until="domcontentloaded")
+            await page.wait_for_timeout(3000)
+
+            await page.add_style_tag(content=hide_css)
+            await page.wait_for_timeout(1500)
+
+            title = await page.title()
+            if "出错啦" in title:
+                logger.error(f"[opus 截图] 页面风控 id={id_str} title={title!r}")
+                raise PushFailure(WAF, f"opus 页风控 id={id_str}")
+
+            for selector in selectors:
+                el = await page.query_selector(selector)
+                if not el:
+                    continue
+                try:
+                    await el.scroll_into_view_if_needed()
+                    await page.wait_for_timeout(500)
+                    image_bytes = await el.screenshot()
+                    return Image.open(io.BytesIO(image_bytes))
+                except Exception as e:
+                    logger.warning(f"[opus 截图] selector={selector} 截图失败: {e}")
+                    continue
+
+            logger.error(f"[opus 截图] 未找到合适的卡片元素 id={id_str}")
+            return None
+        finally:
+            await browser.close()
+
+
+def _load_x_cookies() -> list[dict[str, str]]:
+    cookie_values = {
+        "auth_token": os.getenv("X_AUTH_TOKEN", "").strip(),
+        "ct0": os.getenv("X_CT0", "").strip(),
+        "twid": os.getenv("X_TWID", "").strip(),
+    }
+    for cookie_name, value in list(cookie_values.items()):
+        prefix = f"{cookie_name}="
+        if value.startswith(prefix):
+            cookie_values[cookie_name] = value[len(prefix):].strip()
+
+    if not cookie_values["auth_token"] or not cookie_values["ct0"]:
+        return []
+
+    cookies = []
+    for domain in (".x.com", ".twitter.com"):
+        for name, value in cookie_values.items():
+            if not value:
+                continue
+            cookies.append(
+                {
+                    "name": name,
+                    "value": value,
+                    "domain": domain,
+                    "path": "/",
+                }
+            )
+    return cookies
+
+
+async def screenshot_x_tweet_by_id(username: str, tweet_id: str) -> Optional[Image.Image]:
+    """通过 x.com/{username}/status/{tweet_id} 截取单条推文卡片。"""
+
+    username = username.lstrip("@")
+    url = f"https://x.com/{username}/status/{tweet_id}"
+    user_agent = (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+    )
+
+    hide_css = """
+    header[role="banner"],
+    [data-testid="sidebarColumn"],
+    [data-testid="BottomBar"],
+    [data-testid="mask"],
+    div[role="dialog"],
+    div[aria-modal="true"]
+    { display: none !important; }
+    body { background: #ffffff !important; }
+    main { margin: 0 !important; }
+    """
+
+    # 取消所有 sticky 定位, 避免 X 详情页内"Post"标题栏在 article 顶部叠加遮挡头像/用户名区
+    unstick_js = """() => {
+      document.querySelectorAll('*').forEach(el => {
+        const cs = window.getComputedStyle(el);
+        if (cs.position === 'sticky') {
+          el.style.setProperty('position', 'static', 'important');
+          el.style.setProperty('top', 'auto', 'important');
+        }
+      });
+    }"""
+
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(
+            headless=True,
+            args=["--no-sandbox", "--disable-dev-shm-usage"],
+        )
+        try:
+            context = await browser.new_context(
+                viewport={"width": 900, "height": 1100},
+                user_agent=user_agent,
+                locale="zh-CN",
+                timezone_id="Asia/Shanghai",
+            )
+            cookies = _load_x_cookies()
+            if cookies:
+                await context.add_cookies(cookies)
+
+            page = await context.new_page()
+            await page.goto(url, timeout=45000, wait_until="domcontentloaded")
+            await page.wait_for_timeout(5000)
+
+            await page.add_style_tag(content=hide_css)
+            await page.wait_for_timeout(1000)
+            await page.evaluate(unstick_js)
+
+            content = await page.locator("body").inner_text(timeout=5000)
+            lowered = content.lower()
+            if "something went wrong" in lowered or "rate limit" in lowered:
+                logger.error(f"[X 截图] 页面异常 tweet_id={tweet_id} url={url}")
+                raise PushFailure(WAF, f"X 推文页风控/限流 tweet_id={tweet_id}")
+
+            try:
+                await page.wait_for_selector("article", timeout=12000)
+            except Exception:
+                logger.error(f"[X 截图] 未找到 article tweet_id={tweet_id} url={url}")
+                return None
+
+            articles = await page.query_selector_all("article")
+            for article in articles:
+                try:
+                    hrefs = await article.eval_on_selector_all(
+                        "a[href*='/status/']",
+                        "(els) => els.map((a) => a.href)",
+                    )
+                    if any(str(tweet_id) in str(href) for href in hrefs):
+                        await article.scroll_into_view_if_needed()
+                        await page.wait_for_timeout(500)
+                        await page.evaluate(unstick_js)
+                        image_bytes = await article.screenshot()
+                        return Image.open(io.BytesIO(image_bytes))
+                except Exception as e:
+                    logger.warning(f"[X 截图] 匹配 article 失败 tweet_id={tweet_id}: {e}")
+
+            if articles:
+                article = articles[0]
+                await article.scroll_into_view_if_needed()
+                await page.wait_for_timeout(500)
+                await page.evaluate(unstick_js)
+                image_bytes = await article.screenshot()
+                return Image.open(io.BytesIO(image_bytes))
+
+            logger.error(f"[X 截图] 未找到可截图元素 tweet_id={tweet_id}")
+            return None
+        finally:
+            await browser.close()
 
 
 

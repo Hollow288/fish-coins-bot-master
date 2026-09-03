@@ -76,7 +76,7 @@ async def live_scheduled():
                             live_avatar_url = response_host_data["data"]["card"]["face"]
                             live_name = response_host_data["data"]["card"]["name"]
                             live_address = f"https://live.bilibili.com/{record.live_id}"
-                            live_title = f"《{response_room_data["data"]["title"]}》"
+                            live_title = f"《{response_room_data['data']['title']}》"
                             live_time = response_room_data["data"]["live_time"]
 
                             await BotLiveState.filter(id=record.id).update(live_state=live_status,host_name=live_name,live_time=live_time)
@@ -99,7 +99,7 @@ async def live_scheduled():
                             # await bot.send_group_msg(group_id=record.group_number, message=message_text)
 
                         else:
-                            logger.error(f"Failed for Host ID {response_room_data["data"]["uid"]}, Status: {response_host_info.status_code}")
+                            logger.error(f"Failed for Host ID {response_room_data['data']['uid']}, Status: {response_host_info.status_code}")
                     else:
                         continue
 

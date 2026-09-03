@@ -77,6 +77,8 @@ async def collect_message_event(event: GroupMessageEvent | PrivateMessageEvent) 
     raw_segments = message_segments_to_list(event.message)
     plain_text = event.get_plaintext().strip()
 
+    # 表情包采集已由 sticker_collector 插件全局接管，这里不再处理。
+
     # 如果消息没有文本内容，且只包含无法理解的媒体类型（表情包/图片等），跳过采集
     if not plain_text:
         meaningful_types = {"text", "face", "at"}

@@ -4,7 +4,7 @@ from typing import Any
 from nonebot.adapters.onebot.v11 import GroupMessageEvent
 
 from ..config import get_plugin_config
-from ..utils import datetime_from_timestamp, message_segments_to_list, normalize_text, render_segments_as_text, safe_reply_sender_name
+from ..utils import datetime_from_timestamp, message_segments_to_list, normalize_text, now_shanghai, render_segments_as_text, safe_reply_sender_name
 
 
 _GROUP_MESSAGE_CACHE: dict[str, deque[dict[str, Any]]] = defaultdict(
@@ -24,6 +24,32 @@ def _get_cached_messages(
 
 def _safe_sender_name(event: GroupMessageEvent) -> str:
     return event.sender.card or event.sender.nickname or str(event.user_id)
+
+
+def record_bot_outgoing_message(
+    group_id: str | int,
+    bot_user_id: str | int,
+    text: str,
+    sender_name: str = "[我(机器人)]",
+) -> None:
+    """把机器人自己发出去的话塞进群上下文缓存，让下一轮 AI 能看见自己说过啥。
+    Why: collector.py 的 self_id 守卫挡的是 persona 学习数据；这里只写内存 cache，不入库。"""
+    if not text:
+        return
+    _GROUP_MESSAGE_CACHE[str(group_id)].append(
+        {
+            "group_id": str(group_id),
+            "message_id": "",
+            "user_id": str(bot_user_id),
+            "sender_name": sender_name,
+            "rendered_text": text,
+            "raw_segments": [],
+            "reply_to_user_id": "",
+            "reply_to_sender_name": "",
+            "reply_rendered_text": "",
+            "timestamp": now_shanghai().isoformat(),
+        }
+    )
 
 
 def record_group_message_context(event: GroupMessageEvent) -> None:

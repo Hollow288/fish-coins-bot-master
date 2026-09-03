@@ -1,17 +1,19 @@
 import os
-from typing import Any, Coroutine
+from typing import Any
 
 import httpx
 from nonebot.adapters.onebot.v11 import MessageSegment
 from dotenv import load_dotenv
 from nonebot import  on_command
 from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent, PrivateMessageEvent
-from nonebot.rule import Rule, to_me
+from nonebot.rule import Rule
 from nonebot.adapters import Message
 from nonebot.params import CommandArg
 from nonebot.log import logger
 
+from fish_coins_bot.utils.ai_client import call_text_api
 from fish_coins_bot.utils.image_utils import get_first_image_base64_and_mime
+from fish_coins_bot.utils.admin_utils import parse_admin_ids
 
 
 def is_private_chat(event) -> bool:
@@ -36,38 +38,8 @@ load_dotenv()
 AI_IMAGE_URI = os.getenv("AI_IMAGE_URI")
 AI_IMAGE_APIKEY = os.getenv("AI_IMAGE_APIKEY")
 AI_REMOVE_TEXT_URI = os.getenv("AI_REMOVE_TEXT_URI")
-AI_TEXT_URI = os.getenv("AI_TEXT_URI")
-AI_TEXT_APIKEY = os.getenv("AI_TEXT_APIKEY")
-ADMIN_ID = os.getenv("ADMIN_ID")
-
-async def call_text_api(message: str, user_id: str, retries: int = 3) -> Any | None:
-    """
-    调用 API，如果失败重试最多 retries 次。
-    返回最终成功的 message，否则返回 None。
-    """
-    async with httpx.AsyncClient(timeout=70) as client:
-        for attempt in range(retries):
-            try:
-                response = await client.post(
-                    AI_TEXT_URI,
-                    json={
-                        "message": message,
-                        "memoryId": user_id
-                    },
-                    headers={
-                        "X-API-KEY": AI_TEXT_APIKEY,
-                        "Content-Type": "application/json"
-                    }
-                )
-                data = response.json()
-                # 检查返回格式
-                if data.get("code") == 200 and "data" in data and data["data"].get("message"):
-                    return data["data"]["message"]
-            except Exception as e:
-                # 这里可以打印日志或记录错误
-                logger.error(f"尝试第 {attempt+1} 次失败: {e}")
-                logger.error(f"解析 JSON 出错 response: {response.text}")
-    return None
+# 管理员 QQ 集合, 多个用英文逗号分隔; 留空则无人可用这些指令
+ADMIN_IDS = parse_admin_ids(os.getenv("ADMIN_ID"))
 
 
 @reply_chat.handle()
@@ -75,9 +47,9 @@ async def reply_chat_handle(bot: Bot, event: PrivateMessageEvent, args: Message 
     user_id = str(event.sender.user_id)
 
 
-    if str(user_id) == str(ADMIN_ID):
+    if user_id in ADMIN_IDS:
         if message := args.extract_plain_text():
-            result = await call_text_api(message, user_id)
+            result = await call_text_api(message, user_id, log_tag="ai_chat")
             if result:
                 await reply_chat.send(result)
             else:
@@ -101,6 +73,7 @@ async def call_image_api(message: str, user_id: str,img_base64: str,mime_type :s
     """
     async with httpx.AsyncClient(timeout=70) as client:
         for attempt in range(retries):
+            response: httpx.Response | None = None
             try:
                 response = await client.post(
                     AI_IMAGE_URI,
@@ -122,7 +95,8 @@ async def call_image_api(message: str, user_id: str,img_base64: str,mime_type :s
             except Exception as e:
                 # 这里可以打印日志或记录错误
                 logger.error(f"尝试第 {attempt+1} 次失败: {e}")
-                logger.error(f"解析 JSON 出错 response: {response.text}")
+                if response is not None:
+                    logger.error(f"解析 JSON 出错 response: {response.text}")
     return None
 
 
@@ -163,42 +137,14 @@ async def remove_chat_handle(bot: Bot, event: PrivateMessageEvent, args: Message
     user_id = str(event.sender.user_id)
 
 
-    if str(user_id) == str(ADMIN_ID):
+    if user_id in ADMIN_IDS:
         if message := args.extract_plain_text():
-            result = await call_remove_text_api(message, user_id)
+            result = await call_text_api(
+                message, user_id, uri=AI_REMOVE_TEXT_URI, log_tag="ai_chat.remove"
+            )
             if result:
                 await remove_chat.send(result)
             else:
                 await remove_chat.send("接口请求失败，请稍后再试。")
         else:
             await remove_chat.send("请发送非空消息。")
-
-
-async def call_remove_text_api(message: str, user_id: str, retries: int = 3) -> Any | None:
-    """
-    调用 API，如果失败重试最多 retries 次。
-    返回最终成功的 message，否则返回 None。
-    """
-    async with httpx.AsyncClient(timeout=70) as client:
-        for attempt in range(retries):
-            try:
-                response = await client.post(
-                    AI_REMOVE_TEXT_URI,
-                    json={
-                        "message": message,
-                        "memoryId": user_id
-                    },
-                    headers={
-                        "X-API-KEY": AI_TEXT_APIKEY,
-                        "Content-Type": "application/json"
-                    }
-                )
-                data = response.json()
-                # 检查返回格式
-                if data.get("code") == 200 and "data" in data and data["data"].get("message"):
-                    return data["data"]["message"]
-            except Exception as e:
-                # 这里可以打印日志或记录错误
-                logger.error(f"尝试第 {attempt+1} 次失败: {e}")
-                logger.error(f"解析 JSON 出错 response: {response.text}")
-    return None

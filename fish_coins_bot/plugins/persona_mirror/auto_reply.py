@@ -1,17 +1,18 @@
 import asyncio
 import random
 import time
+from typing import Any
 
 from nonebot import on_message
 from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent, Message, MessageSegment
 from nonebot.log import logger
 
 from .config import get_auto_reply_cooldown, get_plugin_config
-from .models import PersonaMessage, PersonaProfileState, PersonaTarget
-from .services.context_service import get_recent_group_context
+from .models import PersonaAutoReplyLog, PersonaMessage, PersonaProfileState, PersonaTarget
+from .services.context_service import get_recent_group_context, record_bot_outgoing_message
 from .services.persona_service import get_effective_trigger_keywords
-from .services.summarizer_service import generate_reply
-from .utils import message_segments_to_list, normalize_text, now_shanghai
+from .services.summarizer_service import PersonaReplyError, generate_reply
+from .utils import message_segments_to_list, normalize_text, now_shanghai, parse_inline_face_text
 
 
 auto_persona_reply = on_message(priority=20, block=False)
@@ -35,6 +36,31 @@ def invalidate_target_cache() -> None:
     """供其他模块在修改 target 状态后调用。"""
     global _target_cache_ts
     _target_cache_ts = 0.0
+
+
+async def _record_auto_reply_log(
+    *,
+    target_user_id: str,
+    group_id: str,
+    trigger_user_id: str,
+    trigger_user_name: str,
+    ai_response: str | None,
+    success: bool,
+    error_message: str | None,
+) -> None:
+    try:
+        await PersonaAutoReplyLog.create(
+            target_user_id=target_user_id,
+            group_id=group_id,
+            trigger_user_id=trigger_user_id,
+            trigger_user_name=trigger_user_name,
+            ai_response=ai_response,
+            success=success,
+            error_message=error_message,
+        )
+    except Exception as exc:
+        # 日志写失败不能阻断主流程
+        logger.error(f"persona_mirror 自动回复日志写入失败 {target_user_id}: {exc}")
 
 
 def _extract_trigger_payload(event: GroupMessageEvent, target: PersonaTarget) -> dict | None:
@@ -179,34 +205,124 @@ async def handle_auto_persona_reply(bot: Bot, event: GroupMessageEvent) -> None:
         "raw_trigger_message": selected["raw_intent_text"],
     }
 
+    trigger_user_name = event.sender.card or event.sender.nickname or str(event.user_id)
     try:
-        result = await generate_reply(
+        result, raw_response = await generate_reply(
             target,
             selected["intent_text"],
             recent_chat_messages=recent_chat_messages,
             trigger_reason=trigger_reason,
         )
+    except PersonaReplyError as exc:
+        logger.error(f"persona_mirror 自动回复失败 {target.target_user_id}: {exc}")
+        await _record_auto_reply_log(
+            target_user_id=target.target_user_id,
+            group_id=str(event.group_id),
+            trigger_user_id=str(event.user_id),
+            trigger_user_name=trigger_user_name,
+            ai_response=exc.raw_response,
+            success=False,
+            error_message=str(exc),
+        )
+        return
     except Exception as exc:
         logger.error(f"persona_mirror 自动回复失败 {target.target_user_id}: {exc}")
+        await _record_auto_reply_log(
+            target_user_id=target.target_user_id,
+            group_id=str(event.group_id),
+            trigger_user_id=str(event.user_id),
+            trigger_user_name=trigger_user_name,
+            ai_response=None,
+            success=False,
+            error_message=str(exc),
+        )
         return
 
+    await _record_auto_reply_log(
+        target_user_id=target.target_user_id,
+        group_id=str(event.group_id),
+        trigger_user_id=str(event.user_id),
+        trigger_user_name=trigger_user_name,
+        ai_response=raw_response,
+        success=True,
+        error_message=None,
+    )
+
     reply_text = str(result.get("reply", ""))
-    face_id = result.get("face_id", "")
-    face_segment = MessageSegment.face(int(face_id)) if face_id.isdigit() else None
+    face_id = str(result.get("face_id", "")).strip()
+    fallback_face_segment = (
+        MessageSegment.face(int(face_id)) if face_id.isdigit() else None
+    )
 
-    # 按换行拆成多条消息，模拟连发效果；face 附在最后一条
-    segments = [line.strip() for line in reply_text.splitlines() if line.strip()]
-    if not segments:
-        segments = [reply_text]
+    # 把 reply 按换行拆成多条消息（连发效果），每行单独解析内联 [face:N]
+    line_segments_list: list[list[dict[str, Any]]] = []
+    for line in reply_text.splitlines():
+        stripped_line = line.strip()
+        if not stripped_line:
+            continue
+        parsed = parse_inline_face_text(stripped_line)
+        if parsed:
+            line_segments_list.append(parsed)
 
-    for index, segment_text in enumerate(segments):
-        is_last = index == len(segments) - 1
-        segment_message = Message(segment_text)
-        if is_last and face_segment is not None:
-            segment_message += face_segment
-        await bot.send(event, segment_message)
-        if not is_last:
-            await asyncio.sleep(random.uniform(0.6, 1.4))
+    has_inline_face = any(
+        piece["type"] == "face" for parsed in line_segments_list for piece in parsed
+    )
+
+    def _build_message_from_parsed(parsed: list[dict[str, Any]]) -> Message | None:
+        message = Message()
+        appended = False
+        for piece in parsed:
+            if piece["type"] == "text":
+                value = piece["value"]
+                if not value:
+                    continue
+                message += MessageSegment.text(value)
+                appended = True
+            elif piece["type"] == "face":
+                try:
+                    message += MessageSegment.face(int(piece["id"]))
+                    appended = True
+                except ValueError:
+                    continue
+        return message if appended else None
+
+    sent_lines: list[str] = []
+    if not line_segments_list:
+        # 纯表情回复：reply 为空时用 fallback face_id 发一条
+        if fallback_face_segment is not None:
+            await bot.send(event, Message(fallback_face_segment))
+            sent_lines.append(f"[face:{face_id}]")
+    else:
+        for index, parsed in enumerate(line_segments_list):
+            is_last = index == len(line_segments_list) - 1
+            message = _build_message_from_parsed(parsed)
+            if message is None:
+                continue
+            # 只有 reply 中完全没有 inline face 时，才把旧版 face_id 兜底贴到最后一行
+            append_fallback = (
+                is_last and fallback_face_segment is not None and not has_inline_face
+            )
+            if append_fallback:
+                message += fallback_face_segment
+            await bot.send(event, message)
+            line_text = "".join(
+                piece["value"] if piece["type"] == "text" else f"[face:{piece['id']}]"
+                for piece in parsed
+            )
+            if append_fallback:
+                line_text = f"{line_text} [face:{face_id}]" if line_text else f"[face:{face_id}]"
+            if line_text:
+                sent_lines.append(line_text)
+            if not is_last:
+                await asyncio.sleep(random.uniform(0.6, 1.4))
+
+    if sent_lines:
+        record_bot_outgoing_message(
+            event.group_id,
+            str(bot.self_id),
+            "\n".join(sent_lines),
+            sender_name=f"[我(机器人)模仿{target.target_user_id}]",
+        )
 
     # 刷新数据库中的 target 记录（缓存的对象可能已过期）
     fresh_target = await PersonaTarget.get_or_none(id=target.id)
