@@ -17,6 +17,11 @@ from fish_coins_bot.utils.image_utils import get_first_image_base64_and_mime
 def is_private_chat(event) -> bool:
     return isinstance(event, PrivateMessageEvent)
 
+
+def is_group_chat(event) -> bool:
+    return isinstance(event, GroupMessageEvent)
+
+
 reply_chat = on_command(
     "chat",
     rule=Rule(is_private_chat),
@@ -83,7 +88,7 @@ async def reply_chat_handle(bot: Bot, event: PrivateMessageEvent, args: Message 
 
 reply_image = on_command(
     "image",
-    rule=Rule(is_private_chat),
+    rule=Rule(is_group_chat),
     aliases={"images"},
     priority=10,
     block=True,
@@ -122,27 +127,26 @@ async def call_image_api(message: str, user_id: str,img_base64: str,mime_type :s
 
 
 @reply_image.handle()
-async def reply_image_handle(bot: Bot, event: PrivateMessageEvent, args: Message = CommandArg()):
+async def reply_image_handle(bot: Bot, event: GroupMessageEvent, args: Message = CommandArg()):
     user_id = str(event.sender.user_id)
 
 
-    if str(user_id) == str(ADMIN_ID):
-        if message := args.extract_plain_text():
-            logger.info(f"图片指令消息event: {event}")
+    if message := args.extract_plain_text():
+        logger.info(f"图片指令消息event: {event}")
 
-            img_base64, mime_type = await get_first_image_base64_and_mime(event)
+        img_base64, mime_type = await get_first_image_base64_and_mime(event)
 
-            logger.info(f"图片指令消息img_base64: {img_base64}")
-            logger.info(f"图片指令消息mime_type: {mime_type}")
+        logger.info(f"图片指令消息img_base64: {img_base64}")
+        logger.info(f"图片指令消息mime_type: {mime_type}")
 
-            result = await call_image_api(message, user_id, img_base64, mime_type)
-            logger.info(f"图片指令消息result: {result}")
-            if result:
-                await reply_image.send(MessageSegment.image(f"base64://{result}"))
-            else:
-                await reply_image.send("接口请求失败，请稍后再试。")
+        result = await call_image_api(message, user_id, img_base64, mime_type)
+        logger.info(f"图片指令消息result: {result}")
+        if result:
+            await reply_image.send(MessageSegment.image(f"base64://{result}"))
         else:
-            await reply_image.send("请发送非空消息。")
+            await reply_image.send("接口请求失败，请稍后再试。")
+    else:
+        await reply_image.send("请发送非空消息。")
 
 
 
