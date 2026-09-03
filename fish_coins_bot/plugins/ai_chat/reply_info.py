@@ -38,8 +38,25 @@ load_dotenv()
 AI_IMAGE_URI = os.getenv("AI_IMAGE_URI")
 AI_IMAGE_APIKEY = os.getenv("AI_IMAGE_APIKEY")
 AI_REMOVE_TEXT_URI = os.getenv("AI_REMOVE_TEXT_URI")
+AI_IMAGE_PROCESSING_EMOJI_ID = "128064"  # 👀
 # 管理员 QQ 集合, 多个用英文逗号分隔; 留空则无人可用这些指令
 ADMIN_IDS = parse_admin_ids(os.getenv("ADMIN_ID"))
+
+
+async def set_image_processing_reaction(
+    bot: Bot, message_id: int, enabled: bool
+) -> None:
+    """添加或移除生图指令的处理中表情；失败时不影响生图流程。"""
+    try:
+        await bot.call_api(
+            "set_msg_emoji_like",
+            message_id=message_id,
+            emoji_id=AI_IMAGE_PROCESSING_EMOJI_ID,
+            set=enabled,
+        )
+    except Exception as exc:
+        action = "添加" if enabled else "移除"
+        logger.warning(f"{action}生图处理中表情失败: {exc}")
 
 
 @reply_chat.handle()
@@ -113,7 +130,12 @@ async def reply_image_handle(bot: Bot, event: GroupMessageEvent, args: Message =
         logger.info(f"图片指令消息img_base64: {img_base64}")
         logger.info(f"图片指令消息mime_type: {mime_type}")
 
-        result = await call_image_api(message, user_id, img_base64, mime_type)
+        await set_image_processing_reaction(bot, event.message_id, True)
+        try:
+            result = await call_image_api(message, user_id, img_base64, mime_type)
+        finally:
+            await set_image_processing_reaction(bot, event.message_id, False)
+
         logger.info(f"图片指令消息result: {result}")
         if result:
             await reply_image.send(MessageSegment.image(f"base64://{result}"))
